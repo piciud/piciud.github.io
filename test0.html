@@ -24,12 +24,18 @@
             display: none;
         }
         #itineraryTable {
+        }
+        #itineraryTable th {
+            font-size: 2em;
+        }
+        #itineraryTable td {
             font-size: 3em;
         }
     </style>
 </head>
 <body>
-    <button id="refreshButton" style="position: absolute; top: 10px; right: 10px; z-index: 10;">Refresh GPS</button>
+    <button id="refreshButton" style="position: absolute; top: 10px; right: 10px; z-index: 10; font-size: 2em; padding: 10px; border-radius: 5px;">Refresh GPS</button>
+    <div id="gpsStatus" style="position: absolute; top: 80px; right: 10px; z-index: 10; font-size: 2em;"></div>
     <canvas id="profileCanvas" style="width: 100%; height: 33vh;"></canvas>
     <script>
         window.addEventListener('load', function() {
@@ -58,6 +64,8 @@
             const eleRange = maxEle - minEle;
             const maxDist = distances[distances.length - 1];
 
+            let lastRefreshTime;
+
             function getX(distance) {
                 return paddingLeft + (distance / maxDist) * (width - paddingLeft - paddingRight);
             }
@@ -66,43 +74,48 @@
                 return height - paddingBottom - ((elevation - minEle) / eleRange) * (height - paddingTop - paddingBottom);
             }
 
-            // Draw profile
-            ctx.beginPath();
-            ctx.moveTo(getX(distances[0]), getY(elevations[0]));
-            for (let i = 1; i < elevations.length; i++) {
-                ctx.lineTo(getX(distances[i]), getY(elevations[i]));
+            function drawProfile() {
+                ctx.clearRect(0, 0, width, height);
+                // Draw profile
+                ctx.beginPath();
+                ctx.moveTo(getX(distances[0]), getY(elevations[0]));
+                for (let i = 1; i < elevations.length; i++) {
+                    ctx.lineTo(getX(distances[i]), getY(elevations[i]));
+                }
+                ctx.stroke();
+
+                // Draw axes
+                ctx.beginPath();
+                ctx.moveTo(paddingLeft, paddingTop);
+                ctx.lineTo(paddingLeft, height - paddingBottom);
+                ctx.lineTo(width - paddingRight, height - paddingBottom);
+                ctx.stroke();
+
+                // Draw labels
+                ctx.fillStyle = 'black';
+                ctx.font = '35px Arial'; // Set a much bigger font
+                ctx.textAlign = 'left';
+                ctx.fillText(maxEle.toFixed(0) + ' m', 5, paddingTop + 5);
+                ctx.fillText(minEle.toFixed(0) + ' m', 5, height - paddingBottom);
+
+                // Draw y-axis label
+                ctx.save();
+                ctx.translate(60, height / 2); // Translate to the position where the text will be drawn
+                ctx.rotate(-Math.PI / 2); // Rotate -90 degrees (counter-clockwise)
+                ctx.textAlign = 'center'; // Center the text horizontally after rotation
+                ctx.fillText('Elevation', 0, 0); // Draw text at the new origin
+                ctx.restore(); // Restore the canvas to its original state
+
+                ctx.textAlign = 'center';
+                ctx.fillText('Distance', width / 2, height - paddingBottom + 30);
+                ctx.textAlign = 'left';
+                ctx.fillText('0 km', paddingLeft, height - paddingBottom + 30);
+                ctx.textAlign = 'right';
+                ctx.textAlign = 'right';
+                ctx.fillText(maxDist.toFixed(1) + ' km', width - paddingRight, height - paddingBottom + 30);
             }
-            ctx.stroke();
 
-            // Draw axes
-            ctx.beginPath();
-            ctx.moveTo(paddingLeft, paddingTop);
-            ctx.lineTo(paddingLeft, height - paddingBottom);
-            ctx.lineTo(width - paddingRight, height - paddingBottom);
-            ctx.stroke();
-
-            // Draw labels
-            ctx.fillStyle = 'black';
-            ctx.font = '35px Arial'; // Set a much bigger font
-            ctx.textAlign = 'left';
-            ctx.fillText(maxEle.toFixed(0) + ' m', 5, paddingTop + 5);
-            ctx.fillText(minEle.toFixed(0) + ' m', 5, height - paddingBottom);
-
-            // Draw y-axis label
-            ctx.save();
-            ctx.translate(60, height / 2); // Translate to the position where the text will be drawn
-            ctx.rotate(-Math.PI / 2); // Rotate -90 degrees (counter-clockwise)
-            ctx.textAlign = 'center'; // Center the text horizontally after rotation
-            ctx.fillText('Elevation', 0, 0); // Draw text at the new origin
-            ctx.restore(); // Restore the canvas to its original state
-
-            ctx.textAlign = 'center';
-            ctx.fillText('Distance', width / 2, height - paddingBottom + 30);
-            ctx.textAlign = 'left';
-            ctx.fillText('0 km', paddingLeft, height - paddingBottom + 30);
-            ctx.textAlign = 'right';
-            ctx.textAlign = 'right';
-            ctx.fillText(maxDist.toFixed(1) + ' km', width - paddingRight, height - paddingBottom + 30);
+            drawProfile();
 
             function haversine(lat1, lon1, lat2, lon2) {
                 const R = 6371; // Radius of Earth in kilometers
@@ -208,11 +221,45 @@
                 sortTable();
             }
 
+            function formatTimeAgo(date) {
+                const seconds = Math.floor((new Date() - date) / 1000);
+                let interval = seconds / 31536000;
+                if (interval > 1) {
+                    return Math.floor(interval) + " years ago";
+                }
+                interval = seconds / 2592000;
+                if (interval > 1) {
+                    return Math.floor(interval) + " months ago";
+                }
+                interval = seconds / 86400;
+                if (interval > 1) {
+                    return Math.floor(interval) + " days ago";
+                }
+                interval = seconds / 3600;
+                if (interval > 1) {
+                    return Math.floor(interval) + " hours ago";
+                }
+                interval = seconds / 60;
+                if (interval > 1) {
+                    return Math.floor(interval) + " minutes ago";
+                }
+                return Math.floor(seconds) + " seconds ago";
+            }
+
             function refreshLocation() {
+                let dots = 0;
+                const interval = setInterval(() => {
+                    dots = (dots + 1) % 4;
+                    document.getElementById('gpsStatus').innerText = ".".repeat(dots);
+                }, 500);
+
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(position => {
+                        clearInterval(interval);
+                        lastRefreshTime = new Date();
                         const userLat = position.coords.latitude;
                         const userLon = position.coords.longitude;
+                        document.getElementById('gpsStatus').innerText = `Lat: ${userLat.toFixed(5)}, Lon: ${userLon.toFixed(5)}`;
         
                         console.log('User Location:', userLat, userLon);
         
@@ -228,9 +275,13 @@
                         console.log('Nearest Index:', nearestIndex, 'Min Distance:', minDistance);
                         updateMapAndTable(nearestIndex, userLat, userLon);
                     }, error => {
+                        clearInterval(interval);
+                        document.getElementById('gpsStatus').innerText = 'NOPE';
                         console.error('Error getting user location:', error);
                     });
                 } else {
+                    clearInterval(interval);
+                    document.getElementById('gpsStatus').innerText = 'NOPE';
                     console.error('Geolocation is not supported by this browser.');
                 }
             }
@@ -240,7 +291,14 @@
 
             document.getElementById('refreshButton').addEventListener('click', refreshLocation);
 
+            setInterval(() => {
+                if (lastRefreshTime) {
+                    document.getElementById('gpsStatus').innerText = formatTimeAgo(lastRefreshTime);
+                }
+            }, 1000);
+
             function updateMapAndTable(nearestIndex, actualLat, actualLon) {
+                drawProfile();
                 document.getElementById('currentPositionRow').style.display = '';
                 console.log('Nearest Index:', nearestIndex);
 
