@@ -1,0 +1,377 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>northsouth.gpx</title>
+    <style>
+        body { font-family: sans-serif; }
+        canvas { }
+        #itineraryTable th {
+            position: sticky;
+            top: 0;
+            background-color: #f2f2f2; /* Add a background to prevent content from showing through */
+            z-index: 1; /* Ensure it stays on top of scrolling content */
+        }
+        .current-position-row {
+            font-weight: bold;
+            color: red;
+        }
+        #itineraryTable th:nth-child(4),
+        #itineraryTable td:nth-child(4),
+        #itineraryTable th:nth-child(5),
+        #itineraryTable td:nth-child(5) {
+            display: none;
+        }
+        #itineraryTable {
+            font-size: 3em;
+        }
+    </style>
+</head>
+<body>
+    <button id="refreshButton" style="position: absolute; top: 10px; right: 10px; z-index: 10;">Refresh GPS</button>
+    <canvas id="profileCanvas" style="width: 100%; height: 33vh;"></canvas>
+    <script>
+        window.addEventListener('load', function() {
+            const canvas = document.getElementById('profileCanvas');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            const elevations = [79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 77.0, 77.0, 77.0, 77.0, 77.0, 77.0, 77.0, 77.0, 77.0, 77.0, 77.0, 77.0, 77.0, 77.0, 77.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 80.0, 80.0, 79.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 79.0, 79.0, 79.0];
+            const distances = [0, 0.013571715702237364, 0.05098199754852575, 0.053617207115674824, 0.09559888107824743, 0.09921134959917467, 0.1569719310521563, 0.17884583622358916, 0.20035322107723863, 0.21352934926986877, 0.21616457571692035, 0.2475888543773656, 0.25790135504109235, 0.259887867410072, 0.2634049819024742, 0.2666723548369377, 0.2950853522108625, 0.3291403419596045, 0.34303228736762514, 0.357203166388232, 0.3619108994852457, 0.3900397468746968, 0.41377362220980335, 0.420479737034895, 0.42651524045664846, 0.4302246106557774, 0.43460400422827683, 0.4419741738086823, 0.4454913214929255, 0.4503087955978065, 0.45463972133957775, 0.45934746781301505, 0.49834228552424314, 0.5089539715530257, 0.5541903779811129, 0.5706876102366034, 0.5871897267739083, 0.6276149497216439, 0.6288380939148063, 0.6332085439803585, 0.6613754025111566, 0.6689395272328638, 0.675965525703844, 0.699095359269634, 0.7120524297880286, 0.7266990335592575, 0.742237069013895, 0.7442235990578568, 0.7764314131202987, 0.7899647097974121, 0.7930420124745154, 0.8468746433815675, 0.8500612011186653, 0.8530634641383893, 0.8554951697882291, 0.8588154944973211, 0.8632215628309029, 0.8683955338918508, 0.8737388478584456, 0.8764709894970248, 0.8801958078200082, 0.8821457832818294, 0.8839102114492006, 0.8886475893728046, 0.9689550969621743, 1.0237081071430425, 1.0357182713620716];
+            const lats = [52.395805, 52.395696, 52.395394, 52.395373, 52.395033, 52.395005, 52.394534, 52.394358, 52.394183, 52.394078, 52.394057, 52.393799, 52.393717, 52.3937, 52.393673, 52.393646, 52.393415, 52.393136, 52.393021, 52.392906, 52.392867, 52.392626, 52.392417, 52.392357, 52.392303, 52.39227, 52.392231, 52.392165, 52.392138, 52.392105, 52.392078, 52.392039, 52.391689, 52.391595, 52.39119, 52.391042, 52.390894, 52.390532, 52.390521, 52.390482, 52.390236, 52.39017, 52.390109, 52.389918, 52.389808, 52.389688, 52.389562, 52.389545, 52.389293, 52.389194, 52.389178, 52.388761, 52.388733, 52.388706, 52.388685, 52.388657, 52.388635, 52.388597, 52.388558, 52.388569, 52.388575, 52.388569, 52.388569, 52.388542, 52.387917, 52.387494, 52.387401];
+            const lons = [16.983064, 16.982974, 16.982731, 16.982713, 16.982444, 16.982417, 16.982058, 16.981914, 16.981779, 16.981689, 16.981671, 16.981482, 16.981411, 16.981402, 16.981375, 16.981356, 16.981177, 16.98097, 16.98089, 16.9808, 16.980773, 16.980647, 16.980576, 16.980566, 16.980557, 16.980549, 16.98054, 16.98053, 16.980557, 16.980603, 16.980557, 16.98053, 16.980494, 16.980467, 16.980404, 16.980387, 16.980369, 16.980314, 16.980314, 16.980306, 16.980207, 16.98018, 16.980153, 16.980018, 16.979955, 16.979866, 16.979767, 16.979758, 16.979524, 16.979408, 16.979371, 16.978968, 16.978958, 16.978958, 16.978968, 16.978985, 16.979039, 16.978995, 16.978949, 16.978913, 16.978859, 16.978832, 16.978806, 16.978752, 16.978159, 16.977746, 16.977656];
+            const importantPointsData = [];
+            const minLat = 52.387401;
+            const maxLat = 52.395805;
+            const minLon = 16.977656;
+            const maxLon = 16.983064;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const paddingTop = 60;
+            const paddingRight = 0;
+            const paddingBottom = 40;
+            const paddingLeft = 80;
+
+            const maxEle = Math.max(...elevations);
+            const minEle = Math.min(...elevations);
+            const eleRange = maxEle - minEle;
+            const maxDist = distances[distances.length - 1];
+
+            function getX(distance) {
+                return paddingLeft + (distance / maxDist) * (width - paddingLeft - paddingRight);
+            }
+
+            function getY(elevation) {
+                return height - paddingBottom - ((elevation - minEle) / eleRange) * (height - paddingTop - paddingBottom);
+            }
+
+            // Draw profile
+            ctx.beginPath();
+            ctx.moveTo(getX(distances[0]), getY(elevations[0]));
+            for (let i = 1; i < elevations.length; i++) {
+                ctx.lineTo(getX(distances[i]), getY(elevations[i]));
+            }
+            ctx.stroke();
+
+            // Draw axes
+            ctx.beginPath();
+            ctx.moveTo(paddingLeft, paddingTop);
+            ctx.lineTo(paddingLeft, height - paddingBottom);
+            ctx.lineTo(width - paddingRight, height - paddingBottom);
+            ctx.stroke();
+
+            // Draw labels
+            ctx.fillStyle = 'black';
+            ctx.font = '35px Arial'; // Set a much bigger font
+            ctx.textAlign = 'left';
+            ctx.fillText(maxEle.toFixed(0) + ' m', 5, paddingTop + 5);
+            ctx.fillText(minEle.toFixed(0) + ' m', 5, height - paddingBottom);
+
+            // Draw y-axis label
+            ctx.save();
+            ctx.translate(60, height / 2); // Translate to the position where the text will be drawn
+            ctx.rotate(-Math.PI / 2); // Rotate -90 degrees (counter-clockwise)
+            ctx.textAlign = 'center'; // Center the text horizontally after rotation
+            ctx.fillText('Elevation', 0, 0); // Draw text at the new origin
+            ctx.restore(); // Restore the canvas to its original state
+
+            ctx.textAlign = 'center';
+            ctx.fillText('Distance', width / 2, height - paddingBottom + 30);
+            ctx.textAlign = 'left';
+            ctx.fillText('0 km', paddingLeft, height - paddingBottom + 30);
+            ctx.textAlign = 'right';
+            ctx.textAlign = 'right';
+            ctx.fillText(maxDist.toFixed(1) + ' km', width - paddingRight, height - paddingBottom + 30);
+
+            function haversine(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Radius of Earth in kilometers
+                const dLat = (lat2 - lat1) * Math.PI / 180;  // deg2rad below
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = 
+                    0.5 - Math.cos(dLat)/2 + 
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    (1 - Math.cos(dLon))/2;
+
+                return R * 2 * Math.asin(Math.sqrt(a));
+            }
+
+            function calculateBearing(startLat, startLng, destLat, destLng) {
+              // Convert degrees to radians
+              const toRadians = (degrees) => degrees * Math.PI / 180;
+              const toDegrees = (radians) => radians * 180 / Math.PI;
+
+              const startLatRad = toRadians(startLat);
+              const startLngRad = toRadians(startLng);
+              const destLatRad = toRadians(destLat);
+              const destLngRad = toRadians(destLng);
+
+              // Calculate the difference in longitude
+              const deltaLng = destLngRad - startLngRad;
+
+              // Calculate the bearing
+              const y = Math.sin(deltaLng) * Math.cos(destLatRad);
+              const x = Math.cos(startLatRad) * Math.sin(destLatRad) -
+                        Math.sin(startLatRad) * Math.cos(destLatRad) * Math.cos(deltaLng);
+              let bearing = Math.atan2(y, x);
+
+              // Convert the bearing from radians to degrees
+              bearing = toDegrees(bearing);
+
+              // Ensure the bearing is a positive number between 0 and 360
+              return (bearing + 360) % 360;
+            }
+
+            function getBearingArrow(bearing) {
+                if (bearing >= 337.5 || bearing < 22.5) {
+                    return '↑'; // North
+                } else if (bearing >= 22.5 && bearing < 67.5) {
+                    return '↗'; // North-East
+                } else if (bearing >= 67.5 && bearing < 112.5) {
+                    return '→'; // East
+                } else if (bearing >= 112.5 && bearing < 157.5) {
+                    return '↘'; // South-East
+                } else if (bearing >= 157.5 && bearing < 202.5) {
+                    return '↓'; // South
+                } else if (bearing >= 202.5 && bearing < 247.5) {
+                    return '↙'; // South-West
+                } else if (bearing >= 247.5 && bearing < 292.5) {
+                    return '←'; // West
+                } else if (bearing >= 292.5 && bearing < 337.5) {
+                    return '↖'; // North-West
+                }
+                return ''; // Should not happen
+            }
+
+            function sortTable() {
+                const tableBody = document.querySelector('#itineraryTable tbody');
+                const rows = Array.from(tableBody.children);
+
+                rows.sort((a, b) => {
+                    const distanceA = parseFloat(a.cells[0].textContent.trim());
+                    const distanceB = parseFloat(b.cells[0].textContent.trim());
+
+                    if (isNaN(distanceA) && isNaN(distanceB)) return 0; // Both NaN, keep original order
+                    if (isNaN(distanceA)) return 1; // A is NaN, B is a number, put A at the end
+                    if (isNaN(distanceB)) return -1; // B is NaN, A is a number, put B at the end
+
+                    return distanceA - distanceB;
+                });
+
+                while (tableBody.firstChild) {
+                    tableBody.removeChild(tableBody.firstChild);
+                }
+                rows.forEach(row => tableBody.appendChild(row));
+            }
+
+            function updateStaticTable() {
+                const maxEleIndex = elevations.indexOf(maxEle);
+                const maxEleDistance = distances[maxEleIndex];
+
+                document.getElementById('startDistance').innerText = distances[0].toFixed(1);
+                document.getElementById('startHeight').innerText = elevations[0].toFixed(0);
+
+                document.getElementById('highestPointDistance').innerText = maxEleDistance.toFixed(1);
+                document.getElementById('highestPointHeight').innerText = maxEle.toFixed(0);
+
+                document.getElementById('finishDistance').innerText = maxDist.toFixed(1);
+                document.getElementById('finishHeight').innerText = elevations[elevations.length - 1].toFixed(0);
+
+                document.getElementById('startLat').innerText = lats[0].toFixed(5);
+                document.getElementById('startLon').innerText = lons[0].toFixed(5);
+
+                document.getElementById('highestPointLat').innerText = lats[maxEleIndex].toFixed(5);
+                document.getElementById('highestPointLon').innerText = lons[maxEleIndex].toFixed(5);
+
+                document.getElementById('finishLat').innerText = lats[lats.length - 1].toFixed(5);
+                document.getElementById('finishLon').innerText = lons[lons.length - 1].toFixed(5);
+                sortTable();
+            }
+
+            function refreshLocation() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(position => {
+                        const userLat = position.coords.latitude;
+                        const userLon = position.coords.longitude;
+        
+                        console.log('User Location:', userLat, userLon);
+        
+                        let nearestIndex = 0;
+                        let minDistance = Infinity;
+                        for (let i = 0; i < lats.length; i++) {
+                            const dist = haversine(userLat, userLon, lats[i], lons[i]);
+                            if (dist < minDistance) {
+                                minDistance = dist;
+                                nearestIndex = i;
+                            }
+                        }
+                        console.log('Nearest Index:', nearestIndex, 'Min Distance:', minDistance);
+                        updateMapAndTable(nearestIndex, userLat, userLon);
+                    }, error => {
+                        console.error('Error getting user location:', error);
+                    });
+                } else {
+                    console.error('Geolocation is not supported by this browser.');
+                }
+            }
+
+            updateStaticTable();
+            refreshLocation();
+
+            document.getElementById('refreshButton').addEventListener('click', refreshLocation);
+
+            function updateMapAndTable(nearestIndex, actualLat, actualLon) {
+                document.getElementById('currentPositionRow').style.display = '';
+                console.log('Nearest Index:', nearestIndex);
+
+                // Draw current position line
+                const currentX = getX(distances[nearestIndex]);
+                ctx.beginPath();
+                ctx.strokeStyle = 'red';
+                ctx.moveTo(currentX, paddingTop);
+                ctx.lineTo(currentX, height - paddingBottom);
+                ctx.stroke();
+
+                // Draw info on top of the line
+                const currentDist = distances[nearestIndex];
+                const percentage = (currentDist / maxDist) * 100;
+                const ele = elevations[nearestIndex];
+                ctx.fillStyle = 'red';
+                ctx.font = '35px Arial'; // Set a much bigger font for current position info
+
+                let textX = currentX;
+                if (currentX < paddingLeft + 50) {
+                    ctx.textAlign = 'left';
+                    textX = paddingLeft;
+                } else if (currentX > width - paddingRight - 50) {
+                    ctx.textAlign = 'right';
+                    textX = width - paddingRight;
+                } else {
+                    ctx.textAlign = 'center';
+                }
+
+                ctx.fillText(ele.toFixed(0) + ' m', textX, paddingTop - 30);
+                ctx.fillText(currentDist.toFixed(1) + ' km (' + percentage.toFixed(0) + '%)', textX, paddingTop - 5);
+
+                const tableBody = document.querySelector('#itineraryTable tbody');
+
+                document.getElementById('currentDistance').innerText = currentDist.toFixed(1);
+                document.getElementById('currentHeight').innerText = ele.toFixed(0);
+                document.getElementById('currentLat').innerText = lats[nearestIndex].toFixed(5);
+                document.getElementById('currentLon').innerText = lons[nearestIndex].toFixed(5);
+
+                const maxEleIndex = elevations.indexOf(maxEle);
+
+                const currentLat = actualLat;
+                const currentLon = actualLon;
+
+                const startBearing = calculateBearing(currentLat, currentLon, lats[0], lons[0]);
+                const highestPointBearing = calculateBearing(currentLat, currentLon, lats[maxEleIndex], lons[maxEleIndex]);
+                const finishBearing = calculateBearing(currentLat, currentLon, lats[lats.length - 1], lons[lats.length - 1]);
+
+                document.getElementById('startDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[0], lons[0]).toFixed(1) + ' km ' + getBearingArrow(startBearing);
+                document.getElementById('currentDistFromCurrent').innerText = '';
+                document.getElementById('highestPointDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[maxEleIndex], lons[maxEleIndex]).toFixed(1) + ' km ' + getBearingArrow(highestPointBearing);
+                document.getElementById('finishDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[lats.length - 1], lons[lats.length - 1]).toFixed(1) + ' km ' + getBearingArrow(finishBearing);
+
+                importantPointsData.forEach((point, index) => {
+                    const dist = haversine(currentLat, currentLon, point.lat, point.lon);
+                    const bearing = calculateBearing(currentLat, currentLon, point.lat, point.lon);
+                    document.getElementById(`importantPointDistFromCurrent_${index}`).innerText = dist.toFixed(1) + ' km ' + getBearingArrow(bearing);
+                });
+
+                sortTable();
+
+                // Scroll to current position
+                const tableContainer = document.getElementById('tableContainer');
+                const currentPositionRow = document.getElementById('currentDistance').closest('tr'); // Find the parent <tr>
+
+                if (tableContainer && currentPositionRow) {
+                    currentPositionRow.scrollIntoView({ block: "center" });
+                    currentPositionRow.classList.add('current-position-row');
+                }
+            }
+            // Calculate remaining height for tableContainer
+            const canvasHeight = document.getElementById('profileCanvas').offsetHeight;
+
+            const totalOccupiedHeight = canvasHeight;
+            const windowHeight = window.innerHeight;
+            const remainingHeight = windowHeight - totalOccupiedHeight - 25;
+
+            if (tableContainer) {
+                tableContainer.style.height = `${remainingHeight}px`;
+            }
+    });
+    </script>
+    <div id="tableContainer" style="height: 200px; overflow-y: scroll;">
+        <table border="1" width="100%" id="itineraryTable">
+            <thead>
+                <tr>
+                    <th>Distance (km)</th>
+                    <th>Height (m)</th>
+                    <th>Point</th>
+                    <th>Lat</th>
+                    <th>Lon</th>
+                    <th>From Current (km)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td id="startDistance"></td>
+                    <td id="startHeight"></td>
+                    <td>START</td>
+                    <td id="startLat"></td>
+                    <td id="startLon"></td>
+                    <td id="startDistFromCurrent"></td>
+                </tr>
+                <tr id="currentPositionRow" style="display: none;">
+                    <td id="currentDistance"></td>
+                    <td id="currentHeight"></td>
+                    <td>Current Position</td>
+                    <td id="currentLat"></td>
+                    <td id="currentLon"></td>
+                    <td id="currentDistFromCurrent"></td>
+                </tr>
+                <tr>
+                    <td id="highestPointDistance"></td>
+                    <td id="highestPointHeight"></td>
+                    <td>Highest Point</td>
+                    <td id="highestPointLat"></td>
+                    <td id="highestPointLon"></td>
+                    <td id="highestPointDistFromCurrent"></td>
+                </tr>
+                <tr>
+                    <td id="finishDistance"></td>
+                    <td id="finishHeight"></td>
+                    <td>FINISH</td>
+                    <td id="finishLat"></td>
+                    <td id="finishLon"></td>
+                    <td id="finishDistFromCurrent"></td>
+                </tr>
+                
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
+
