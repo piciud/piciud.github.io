@@ -163,13 +163,14 @@
             }
 
             // Find nearest point
+
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(position => {
                     const userLat = position.coords.latitude;
                     const userLon = position.coords.longitude;
-
+    
                     console.log('User Location:', userLat, userLon);
-
+    
                     let nearestIndex = 0;
                     let minDistance = Infinity;
                     for (let i = 0; i < lats.length; i++) {
@@ -202,6 +203,8 @@
                 // Fallback to a random location if geolocation is not supported
                 const randomLat = minLat + Math.random() * (maxLat - minLat);
                 const randomLon = minLon + Math.random() * (maxLon - minLon);
+                console.log('Bounding Box:', minLat, maxLat, minLon, maxLon);
+                console.log('Random Point:', randomLat, randomLon);
                 let nearestIndex = 0;
                 let minDistance = Infinity;
                 for (let i = 0; i < lats.length; i++) {
@@ -320,7 +323,6 @@
                     currentPositionRow.classList.add('current-position-row');
                 }
             }
-
             // Calculate remaining height for tableContainer
             const canvasHeight = document.getElementById('profileCanvas').offsetHeight;
 
@@ -482,6 +484,158 @@
                     <td>52.4844672</td>
                     <td>17.0033025</td>
                     <td id="importantPointDistFromCurrent_12"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>138</td>
+                    <td>Exit: wielkopolska droga sw jakuba</td>
+                    <td>52.479659</td>
+                    <td>17.01021</td>
+                    <td id="importantPointDistFromCurrent_13"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>106</td>
+                    <td>Entry: wielkopolska droga sw jakuba</td>
+                    <td>52.481508</td>
+                    <td>17.005359</td>
+                    <td id="importantPointDistFromCurrent_14"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>116</td>
+                    <td>Entry: wielkopolska droga sw jakuba</td>
+                    <td>52.478089</td>
+                    <td>17.009223</td>
+                    <td id="importantPointDistFromCurrent_15"></td>
+                </tr>
+                <tr>
+                    <td>2.4</td>
+                    <td>141</td>
+                    <td>Exit: czerwony szlak turystyczny jezioro plotki czerwonak</td>
+                    <td>52.48014</td>
+                    <td>17.012124</td>
+                    <td id="importantPointDistFromCurrent_16"></td>
+                </tr>
+                <tr>
+                    <td>0.5</td>
+                    <td>144</td>
+                    <td>Entry: zolty szlak turystyczny kobylnica dziewicza gora</td>
+                    <td>52.480075</td>
+                    <td>17.011055</td>
+                    <td id="importantPointDistFromCurrent_17"></td>
+                </tr>
+                <tr>
+                    <td>0.7</td>
+                    <td>132</td>
+                    <td>Exit: niebieski szlak turystyczny slawa wielkopolska dziewicza gora</td>
+                    <td>52.480545</td>
+                    <td>17.013625</td>
+                    <td id="importantPointDistFromCurrent_18"></td>
+                </tr>
+                <tr>
+                    <td>3.4</td>
+                    <td>143</td>
+                    <td>Exit: niebieski szlak turystyczny slawa wielkopolska dziewicza gora</td>
+                    <td>52.480288</td>
+                    <td>17.011244</td>
+                    <td id="importantPointDistFromCurrent_19"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>136</td>
+                    <td>Entry: czerwony szlak turystyczny jezioro plotki czerwonak</td>
+                    <td>52.479856</td>
+                    <td>17.009734</td>
+                    <td id="importantPointDistFromCurrent_20"></td>
+                </tr>
+                <tr>
+                    <td>3.2</td>
+                    <td>131</td>
+                    <td>Entry: zolty szlak turystyczny kobylnica dziewicza gora</td>
+                    <td>52.480764</td>
+                    <td>17.013849</td>
+                    <td id="importantPointDistFromCurrent_21"></td>
+                </tr>
+                <tr>
+                    <td>3.4</td>
+                    <td>143</td>
+                    <td>Exit: czerwony szlak turystyczny jezioro plotki czerwonak</td>
+                    <td>52.480288</td>
+                    <td>17.011244</td>
+                    <td id="importantPointDistFromCurrent_22"></td>
+                </tr>
+                <tr>
+                    <td>3.4</td>
+                    <td>143</td>
+                    <td>Exit: zolty szlak turystyczny kobylnica dziewicza gora</td>
+                    <td>52.480288</td>
+                    <td>17.011244</td>
+                    <td id="importantPointDistFromCurrent_23"></td>
+                </tr>
+                <tr>
+                    <td>3.1</td>
+                    <td>123</td>
+                    <td>Entry: niebieski szlak turystyczny slawa wielkopolska dziewicza gora</td>
+                    <td>52.480885</td>
+                    <td>17.014504</td>
+                    <td id="importantPointDistFromCurrent_24"></td>
+                </tr>
+                <tr>
+                    <td>0.5</td>
+                    <td>144</td>
+                    <td>Entry: niebieski szlak turystyczny slawa wielkopolska dziewicza gora</td>
+                    <td>52.480075</td>
+                    <td>17.011055</td>
+                    <td id="importantPointDistFromCurrent_25"></td>
+                </tr>
+                <tr>
+                    <td>0.7</td>
+                    <td>132</td>
+                    <td>Exit: czerwony szlak turystyczny jezioro plotki czerwonak</td>
+                    <td>52.480545</td>
+                    <td>17.013625</td>
+                    <td id="importantPointDistFromCurrent_26"></td>
+                </tr>
+                <tr>
+                    <td>3.6</td>
+                    <td>116</td>
+                    <td>Entry: niebieski szlak turystyczny slawa wielkopolska dziewicza gora</td>
+                    <td>52.482312</td>
+                    <td>17.009797</td>
+                    <td id="importantPointDistFromCurrent_27"></td>
+                </tr>
+                <tr>
+                    <td>3.8</td>
+                    <td>106</td>
+                    <td>Exit: niebieski szlak turystyczny slawa wielkopolska dziewicza gora</td>
+                    <td>52.482832</td>
+                    <td>17.008099</td>
+                    <td id="importantPointDistFromCurrent_28"></td>
+                </tr>
+                <tr>
+                    <td>1.2</td>
+                    <td>105</td>
+                    <td>Exit: zolty szlak turystyczny kobylnica dziewicza gora</td>
+                    <td>52.476857</td>
+                    <td>17.015862</td>
+                    <td id="importantPointDistFromCurrent_29"></td>
+                </tr>
+                <tr>
+                    <td>3.1</td>
+                    <td>123</td>
+                    <td>Entry: czerwony szlak turystyczny jezioro plotki czerwonak</td>
+                    <td>52.480885</td>
+                    <td>17.014504</td>
+                    <td id="importantPointDistFromCurrent_30"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>136</td>
+                    <td>Entry: czerwony szlak turystyczny jezioro plotki czerwonak</td>
+                    <td>52.479517</td>
+                    <td>17.010093</td>
+                    <td id="importantPointDistFromCurrent_31"></td>
                 </tr>
             </tbody>
         </table>
