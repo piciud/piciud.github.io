@@ -1,0 +1,504 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>export.gpx</title>
+    <style>
+        body { font-family: sans-serif; }
+        canvas { }
+        #itineraryTable th {
+            position: sticky;
+            top: 0;
+            background-color: #f2f2f2; /* Add a background to prevent content from showing through */
+            z-index: 1; /* Ensure it stays on top of scrolling content */
+        }
+        .current-position-row {
+            font-weight: bold;
+            color: red;
+        }
+        #itineraryTable th:nth-child(4),
+        #itineraryTable td:nth-child(4),
+        #itineraryTable th:nth-child(5),
+        #itineraryTable td:nth-child(5) {
+            display: none;
+        }
+        #itineraryTable {
+        }
+        #itineraryTable th {
+            font-size: 2em;
+        }
+        #itineraryTable td {
+            font-size: 3em;
+        }
+        .switch {
+          position: relative;
+          display: inline-block;
+          width: 120px;
+          height: 68px;
+        }
+
+        .switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+
+        .slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: #ccc;
+          -webkit-transition: .4s;
+          transition: .4s;
+        }
+
+        .slider:before {
+          position: absolute;
+          content: "";
+          height: 52px;
+          width: 52px;
+          left: 8px;
+          bottom: 8px;
+          background-color: white;
+          -webkit-transition: .4s;
+          transition: .4s;
+        }
+
+        input:checked + .slider {
+          background-color: #2196F3;
+        }
+
+        input:focus + .slider {
+          box-shadow: 0 0 1px #2196F3;
+        }
+
+        input:checked + .slider:before {
+          -webkit-transform: translateX(52px);
+          -ms-transform: translateX(52px);
+          transform: translateX(52px);
+        }
+
+        /* Rounded sliders */
+        .slider.round {
+          border-radius: 68px;
+        }
+
+        .slider.round:before {
+          border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div style="position: absolute; top: 10px; left: 10px; z-index: 10; font-size: 2em; display: flex; align-items: center; background-color: white; padding: 10px; border-radius: 5px; opacity: 0.6;">
+        <label class="switch">
+          <input type="checkbox" id="autoScrollToggle" checked>
+          <span class="slider round"></span>
+        </label>
+    </div>
+    <div id="gpsStatus" style="position: absolute; top: 10px; right: 10px; z-index: 10; font-size: 2em; opacity: 0.8;"></div>
+    <canvas id="profileCanvas" style="width: 100%; height: 33vh;"></canvas>
+    <script>
+        window.addEventListener('load', function() {
+            const canvas = document.getElementById('profileCanvas');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            const elevations = [77.0, 77.0, 76.0, 76.0, 76.0, 76.0, 75.0, 75.0, 75.0, 75.0, 75.0, 75.0, 75.0, 75.0, 76.0, 76.0, 76.0, 76.0, 76.0, 76.0, 76.0, 76.0, 76.0, 76.0, 76.0, 76.0, 77.0, 77.0, 77.0, 77.0, 77.0, 77.0, 77.0, 77.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 79.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 78.0, 76.0, 75.0, 75.0, 73.0, 73.0, 73.0, 73.0, 73.0, 72.0, 71.0, 70.0, 69.0, 69.0, 69.0, 67.0, 66.0, 65.0, 65.0, 67.0, 71.0, 70.0, 72.0, 72.0, 73.0, 75.0, 76.0, 78.0, 78.0, 79.0, 79.0, 79.0, 79.0, 80.0, 80.0, 81.0, 80.0, 79.0, 79.0, 79.0, 79.0, 79.0, 80.0, 80.0, 81.0, 80.0, 80.0, 80.0, 80.0, 79.0, 79.0, 78.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 79.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0, 78.0];
+            const distances = [0, 0.015878939847404277, 0.025537572792595838, 0.03466598276011704, 0.053335789903384626, 0.07025186582617457, 0.09069632214514786, 0.09903735270315145, 0.11916024782075597, 0.13225966249811633, 0.14517673173736786, 0.17577026320944064, 0.18496093069015052, 0.19252503837923432, 0.22120975925460531, 0.2490574188276977, 0.26894195178560043, 0.2887598106935952, 0.29307085396398785, 0.29884810265519995, 0.41598577593275143, 0.4202968397577705, 0.42340065726609766, 0.4674081436097923, 0.4693580087274858, 0.47924414831108736, 0.5140228194800367, 0.5444403517958727, 0.5693545301028363, 0.6163026495644398, 0.6256565639950119, 0.6333913395163169, 0.6384180769348576, 0.6421914781665867, 0.6555711598111351, 0.6717313842423711, 0.6822844246347387, 0.6932321994067273, 0.7017203453044252, 0.7053847129410792, 0.7123636044003503, 0.7221280770863474, 0.7367317062783991, 0.75005803189305, 0.7596872744727065, 0.7722534650595697, 0.7826801459146553, 0.7914966441136662, 0.8034389486258051, 0.8189085213101537, 0.8320554996742582, 0.8549235788146895, 0.8726982580652612, 0.9098423850293841, 0.9165606159502895, 0.925011430375272, 0.925011430375272, 0.9334622448002545, 0.9401804757211599, 0.9445509270761498, 0.9464319581854956, 0.9503447181900117, 0.9662273755220453, 0.9705026261658958, 0.9740940986165837, 0.9762521822126926, 0.9798488189543647, 0.9848026771079065, 0.9920638116616748, 0.9945068102029924, 0.9982315461148066, 1.0018960434287874, 1.0036604310245774, 1.0056688629071349, 1.0168588906260332, 1.0209603403500493, 1.0253214253196579, 1.0300587490427986, 1.0330959695113504, 1.0693555823316032, 1.0742869531388386, 1.0792855700004522, 1.083853677239471, 1.0879770256586847, 1.0914942346252803, 1.1181144038033783, 1.1220037721273048, 1.1304443881215716, 1.1407153967648576, 1.1485727044701242, 1.1513070008926727, 1.1557856245593827, 1.164875910647204, 1.172824760162152, 1.1871390351923954, 1.1983290436318987, 1.203528819682936, 1.215962395124337, 1.225660727528112, 1.2673517773433212, 1.3032984782138004, 1.3218131861868592, 1.3890924744856261, 1.4291227084571265, 1.4419747929740567, 1.451287954861918, 1.4689457310695526, 1.4689457310695526, 1.491075220082687, 1.5143749505048871, 1.5256510313040046, 1.5299305769112066, 1.5312687719132252, 1.5324919161063875, 1.5349977115178555, 1.5400086574972685, 1.54440705471451, 1.5465650848201509, 1.5636147716913582, 1.5851959515799816, 1.6718181508609493, 1.7163613227103622, 1.7388209667954588, 1.7618463313651265, 1.7845683535472001, 1.794105184570389, 1.807543428991585, 1.8152569966224843, 1.8282940987553078, 1.8411901576344896, 1.8524600787013588, 1.8641769627169593, 1.8938772522202028, 1.904883631581963, 1.914815243502193, 1.9409391417294735, 1.9409391417294735, 1.9428888988793258, 1.9599102323362536, 1.9680051131769252, 1.9775241256322211, 1.9846095280069136, 1.9913270905877467, 1.9967838211054336, 2.0158406960308395, 2.0410581953568183, 2.070030558235739, 2.1052367371679876, 2.128650537258965, 2.162470864340041, 2.234351382807691, 2.2949434113273504, 2.3111820627799426, 2.3194570529867873, 2.3304710438637666, 2.3426447959244134, 2.3637599897419244, 2.3865458704803366, 2.4168001886468873, 2.428266324443009, 2.4408667049101105, 2.453776928949198, 2.4685493453043756, 2.4872506949640094, 2.4990268435079384, 2.51233819215731, 2.541698860857327, 2.601869037012188, 2.6202412418820797, 2.648831958081404, 2.752363484340655, 2.7572267619179227, 2.7603153624899495, 2.763371552765796, 2.7682521517968555, 2.7990599430056906, 2.8136416732191663, 2.8136416732191663, 2.827015247934962, 2.843485972232923, 2.860348259250767, 2.875843294014497, 2.9153750215302594, 2.9290338480741474, 2.93693334509213, 2.939130439156463, 2.9411169414055904, 2.944358114824492, 2.9490320487560355, 2.9551047147811738, 2.961561801705708, 2.964931607401856, 2.971144471106134, 2.9761216850808423, 2.995161816805475, 3.0325720986517637, 3.035207308218913, 3.0771889821814855, 3.080801450702413, 3.1385620321553946, 3.181940430588567, 3.1951165587811974, 3.197751785228249, 3.229176063888694, 3.239488564552421, 3.2414750769214007, 3.244992191413803, 3.2482595643482663, 3.276672561722191, 3.2866043574796233, 3.2983582929963005, 3.2990368455564774];
+            const lats = [52.392709, 52.392582, 52.392511, 52.392445, 52.392341, 52.392264, 52.39221, 52.392187, 52.392198, 52.392133, 52.392072, 52.392012, 52.39193, 52.391864, 52.391809, 52.391765, 52.391732, 52.391699, 52.391694, 52.391678, 52.391485, 52.39148, 52.391475, 52.391404, 52.391398, 52.391381, 52.391321, 52.391272, 52.391228, 52.391157, 52.39114, 52.391206, 52.39125, 52.391245, 52.39125, 52.391223, 52.391206, 52.391173, 52.391146, 52.391146, 52.391129, 52.391097, 52.391047, 52.390987, 52.390938, 52.39086, 52.390784, 52.390718, 52.39062, 52.390488, 52.390373, 52.39017, 52.390011, 52.389677, 52.389677, 52.389753, 52.389753, 52.389677, 52.389677, 52.389638, 52.389622, 52.3896, 52.389545, 52.389545, 52.389562, 52.389578, 52.389578, 52.389578, 52.389578, 52.389578, 52.389584, 52.389584, 52.389584, 52.389567, 52.389474, 52.389441, 52.389413, 52.389386, 52.389381, 52.389271, 52.389265, 52.389271, 52.389287, 52.389304, 52.389331, 52.389556, 52.389589, 52.38966, 52.389748, 52.389721, 52.389743, 52.389731, 52.389808, 52.389874, 52.389995, 52.390088, 52.390104, 52.390209, 52.39029, 52.390641, 52.390943, 52.391102, 52.391666, 52.392001, 52.39211, 52.392187, 52.392336, 52.392336, 52.392522, 52.392719, 52.392818, 52.392856, 52.392867, 52.392878, 52.3929, 52.392939, 52.392977, 52.392993, 52.393032, 52.393103, 52.393377, 52.393525, 52.393602, 52.393679, 52.39375, 52.393788, 52.393826, 52.393892, 52.393985, 52.394084, 52.394161, 52.394211, 52.394254, 52.394259, 52.394243, 52.394172, 52.394172, 52.394166, 52.394128, 52.394111, 52.39409, 52.394068, 52.394068, 52.394073, 52.394161, 52.394271, 52.394413, 52.394539, 52.394567, 52.394687, 52.395021, 52.395312, 52.395433, 52.395454, 52.395509, 52.395592, 52.395739, 52.395915, 52.396162, 52.396255, 52.396343, 52.39643, 52.396513, 52.396611, 52.396661, 52.39671, 52.396803, 52.396951, 52.396995, 52.397066, 52.397264, 52.397258, 52.397241, 52.397219, 52.397181, 52.39694, 52.39683, 52.39683, 52.396726, 52.396611, 52.396496, 52.396392, 52.396195, 52.39614, 52.396112, 52.396096, 52.396079, 52.396052, 52.396069, 52.396019, 52.395965, 52.395937, 52.395888, 52.395849, 52.395696, 52.395394, 52.395373, 52.395033, 52.395005, 52.394534, 52.394183, 52.394078, 52.394057, 52.393799, 52.393717, 52.3937, 52.393673, 52.393646, 52.393415, 52.393399, 52.39336, 52.39336];
+            const lons = [16.981016, 16.981123, 16.981205, 16.981285, 16.981501, 16.981716, 16.982004, 16.982121, 16.982417, 16.982578, 16.98274, 16.98318, 16.983163, 16.983136, 16.983549, 16.983953, 16.984241, 16.984528, 16.984591, 16.984672, 16.986369, 16.986432, 16.986477, 16.987115, 16.987142, 16.987285, 16.987788, 16.988229, 16.988589, 16.989271, 16.989406, 16.989442, 16.989459, 16.989514, 16.989711, 16.989945, 16.990098, 16.99025, 16.990367, 16.990421, 16.99052, 16.990654, 16.990853, 16.991023, 16.99114, 16.991274, 16.991364, 16.991436, 16.991508, 16.99158, 16.991625, 16.991679, 16.991706, 16.991715, 16.991616, 16.991616, 16.991616, 16.991616, 16.991715, 16.991723, 16.991732, 16.991777, 16.991993, 16.992056, 16.992101, 16.992119, 16.992172, 16.992245, 16.992352, 16.992388, 16.992442, 16.992496, 16.992522, 16.992532, 16.992595, 16.992622, 16.992667, 16.992721, 16.992765, 16.993268, 16.99334, 16.993413, 16.993475, 16.993529, 16.993556, 16.99369, 16.993709, 16.993753, 16.993799, 16.993906, 16.993924, 16.993987, 16.994032, 16.994077, 16.994149, 16.994212, 16.99414, 16.994203, 16.994256, 16.994472, 16.994661, 16.994742, 16.995101, 16.995317, 16.99538, 16.995434, 16.995524, 16.995524, 16.99564, 16.995757, 16.995721, 16.995711, 16.995703, 16.995703, 16.995711, 16.995748, 16.995766, 16.995784, 16.995541, 16.995245, 16.99405, 16.99344, 16.993134, 16.992819, 16.992505, 16.992379, 16.992191, 16.992226, 16.992343, 16.992442, 16.99255, 16.992702, 16.993134, 16.993296, 16.99344, 16.993807, 16.993807, 16.993834, 16.994077, 16.994193, 16.994329, 16.994427, 16.994526, 16.994606, 16.994365, 16.99404, 16.993682, 16.993206, 16.992864, 16.992406, 16.991499, 16.990744, 16.99061, 16.990493, 16.990358, 16.990241, 16.990044, 16.989872, 16.989685, 16.989612, 16.989495, 16.989369, 16.989199, 16.988975, 16.988822, 16.988643, 16.988238, 16.987385, 16.987124, 16.986719, 16.985228, 16.985157, 16.985121, 16.985094, 16.985058, 16.984834, 16.984717, 16.984717, 16.984618, 16.984465, 16.984303, 16.984151, 16.983666, 16.983486, 16.983379, 16.98336, 16.983351, 16.983333, 16.98327, 16.983234, 16.983199, 16.98318, 16.983136, 16.9831, 16.982974, 16.982731, 16.982713, 16.982444, 16.982417, 16.982058, 16.981779, 16.981689, 16.981671, 16.981482, 16.981411, 16.981402, 16.981375, 16.981356, 16.981177, 16.981321, 16.981482, 16.981492];
+            const importantPointsData = [];
+            const minLat = 52.389265;
+            const maxLat = 52.397264;
+            const minLon = 16.981016;
+            const maxLon = 16.995784;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const paddingTop = 100;
+            const paddingRight = 0;
+            const paddingBottom = 40;
+            const paddingLeft = 20;
+
+            const maxEle = Math.max(...elevations);
+            const minEle = Math.min(...elevations);
+            const eleRange = maxEle - minEle;
+            const maxDist = distances[distances.length - 1];
+
+            let lastRefreshTime;
+            let gpsStatusMessage = '';
+            let isAutoScrollOn = true;
+
+            function getX(distance) {
+                return paddingLeft + (distance / maxDist) * (width - paddingLeft - paddingRight);
+            }
+
+            function getY(elevation) {
+                return height - paddingBottom - ((elevation - minEle) / eleRange) * (height - paddingTop - paddingBottom);
+            }
+
+            function drawProfile() {
+                ctx.clearRect(0, 0, width, height);
+                ctx.strokeStyle = 'black';
+                ctx.fillStyle = 'black';
+                // Draw profile
+                ctx.beginPath();
+                ctx.moveTo(getX(distances[0]), getY(elevations[0]));
+                for (let i = 1; i < elevations.length; i++) {
+                    ctx.lineTo(getX(distances[i]), getY(elevations[i]));
+                }
+                ctx.stroke();
+
+                // Draw axes
+                ctx.beginPath();
+                ctx.moveTo(paddingLeft, paddingTop);
+                ctx.lineTo(paddingLeft, height - paddingBottom);
+                ctx.lineTo(width - paddingRight, height - paddingBottom);
+                ctx.stroke();
+            }
+
+            drawProfile();
+
+            function haversine(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Radius of Earth in kilometers
+                const dLat = (lat2 - lat1) * Math.PI / 180;  // deg2rad below
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = 
+                    0.5 - Math.cos(dLat)/2 + 
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    (1 - Math.cos(dLon))/2;
+
+                return R * 2 * Math.asin(Math.sqrt(a));
+            }
+
+            function calculateBearing(startLat, startLng, destLat, destLng) {
+              // Convert degrees to radians
+              const toRadians = (degrees) => degrees * Math.PI / 180;
+              const toDegrees = (radians) => radians * 180 / Math.PI;
+
+              const startLatRad = toRadians(startLat);
+              const startLngRad = toRadians(startLng);
+              const destLatRad = toRadians(destLat);
+              const destLngRad = toRadians(destLng);
+
+              // Calculate the difference in longitude
+              const deltaLng = destLngRad - startLngRad;
+
+              // Calculate the bearing
+              const y = Math.sin(deltaLng) * Math.cos(destLatRad);
+              const x = Math.cos(startLatRad) * Math.sin(destLatRad) -
+                        Math.sin(startLatRad) * Math.cos(destLatRad) * Math.cos(deltaLng);
+              let bearing = Math.atan2(y, x);
+
+              // Convert the bearing from radians to degrees
+              bearing = toDegrees(bearing);
+
+              // Ensure the bearing is a positive number between 0 and 360
+              return (bearing + 360) % 360;
+            }
+
+            function getBearingArrow(bearing) {
+                if (bearing >= 337.5 || bearing < 22.5) {
+                    return '↑'; // North
+                } else if (bearing >= 22.5 && bearing < 67.5) {
+                    return '↗'; // North-East
+                } else if (bearing >= 67.5 && bearing < 112.5) {
+                    return '→'; // East
+                } else if (bearing >= 112.5 && bearing < 157.5) {
+                    return '↘'; // South-East
+                } else if (bearing >= 157.5 && bearing < 202.5) {
+                    return '↓'; // South
+                } else if (bearing >= 202.5 && bearing < 247.5) {
+                    return '↙'; // South-West
+                } else if (bearing >= 247.5 && bearing < 292.5) {
+                    return '←'; // West
+                } else if (bearing >= 292.5 && bearing < 337.5) {
+                    return '↖'; // North-West
+                }
+                return ''; // Should not happen
+            }
+
+            function sortTable() {
+                const tableBody = document.querySelector('#itineraryTable tbody');
+                const rows = Array.from(tableBody.children);
+
+                rows.sort((a, b) => {
+                    const distanceA = parseFloat(a.cells[0].textContent.trim());
+                    const distanceB = parseFloat(b.cells[0].textContent.trim());
+
+                    if (isNaN(distanceA) && isNaN(distanceB)) return 0; // Both NaN, keep original order
+                    if (isNaN(distanceA)) return 1; // A is NaN, B is a number, put A at the end
+                    if (isNaN(distanceB)) return -1; // B is NaN, A is a number, put B at the end
+
+                    return distanceA - distanceB;
+                });
+
+                while (tableBody.firstChild) {
+                    tableBody.removeChild(tableBody.firstChild);
+                }
+                rows.forEach(row => tableBody.appendChild(row));
+            }
+
+            function updateStaticTable() {
+                const maxEleIndex = elevations.indexOf(maxEle);
+                const maxEleDistance = distances[maxEleIndex];
+
+                document.getElementById('startDistance').innerText = distances[0].toFixed(1);
+                document.getElementById('startHeight').innerText = elevations[0].toFixed(0);
+
+                document.getElementById('highestPointDistance').innerText = maxEleDistance.toFixed(1);
+                document.getElementById('highestPointHeight').innerText = maxEle.toFixed(0);
+
+                document.getElementById('finishDistance').innerText = maxDist.toFixed(1);
+                document.getElementById('finishHeight').innerText = elevations[elevations.length - 1].toFixed(0);
+
+                document.getElementById('startLat').innerText = lats[0].toFixed(5);
+                document.getElementById('startLon').innerText = lons[0].toFixed(5);
+                document.getElementById('startLink').href = `geo:${lats[0]},${lons[0]}`;
+
+                document.getElementById('highestPointLat').innerText = lats[maxEleIndex].toFixed(5);
+                document.getElementById('highestPointLon').innerText = lons[maxEleIndex].toFixed(5);
+                document.getElementById('highestPointLink').href = `geo:${lats[maxEleIndex]},${lons[maxEleIndex]}`;
+
+                document.getElementById('finishLat').innerText = lats[lats.length - 1].toFixed(5);
+                document.getElementById('finishLon').innerText = lons[lats.length - 1].toFixed(5);
+                document.getElementById('finishLink').href = `geo:${lats[lats.length - 1]},${lons[lats.length - 1]}`;
+                sortTable();
+            }
+
+            function formatTimeAgo(date) {
+                const seconds = Math.floor((new Date() - date) / 1000);
+                let interval = seconds / 31536000;
+                if (interval > 1) {
+                    return Math.floor(interval) + " years ago";
+                }
+                interval = seconds / 2592000;
+                if (interval > 1) {
+                    return Math.floor(interval) + " months ago";
+                }
+                interval = seconds / 86400;
+                if (interval > 1) {
+                    return Math.floor(interval) + " days ago";
+                }
+                interval = seconds / 3600;
+                if (interval > 1) {
+                    return Math.floor(interval) + " hours ago";
+                }
+                interval = seconds / 60;
+                if (interval > 1) {
+                    return Math.floor(interval) + " minutes ago";
+                }
+                return Math.floor(seconds) + " seconds ago";
+            }
+
+            function refreshLocation() {
+                let dots = 0;
+                const interval = setInterval(() => {
+                    dots = (dots + 1) % 4;
+                    gpsStatusMessage = ".".repeat(dots);
+                }, 500);
+
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(position => {
+                        clearInterval(interval);
+                        lastRefreshTime = new Date();
+                        const userLat = position.coords.latitude;
+                        const userLon = position.coords.longitude;
+                        
+                        const locationLog = document.getElementById('locationLog');
+                        if (locationLog) {
+                            const now = new Date();
+                            const logLine = `${now.toLocaleTimeString()}: ${userLat.toFixed(5)}, ${userLon.toFixed(5)}
+`;
+                            locationLog.value = logLine + locationLog.value;
+                        }
+
+                        gpsStatusMessage = `Lat: ${userLat.toFixed(5)}, Lon: ${userLon.toFixed(5)}`;
+        
+                        console.log('User Location:', userLat, userLon);
+        
+                        let nearestIndex = 0;
+                        let minDistance = Infinity;
+                        for (let i = 0; i < lats.length; i++) {
+                            const dist = haversine(userLat, userLon, lats[i], lons[i]);
+                            if (dist < minDistance) {
+                                minDistance = dist;
+                                nearestIndex = i;
+                            }
+                        }
+                        console.log('Nearest Index:', nearestIndex, 'Min Distance:', minDistance);
+                        updateMapAndTable(nearestIndex, userLat, userLon);
+                    }, error => {
+                        clearInterval(interval);
+                        gpsStatusMessage = 'NOPE';
+                        console.error('Error getting user location:', error);
+                    });
+                } else {
+                    clearInterval(interval);
+                    gpsStatusMessage = 'NOPE';
+                    console.error('Geolocation is not supported by this browser.');
+                }
+            }
+
+            updateStaticTable();
+            refreshLocation();
+            setInterval(refreshLocation, 20000);
+
+            document.getElementById('autoScrollToggle').addEventListener('change', function() {
+                isAutoScrollOn = this.checked;
+            });
+
+            setInterval(() => {
+                if (lastRefreshTime) {
+                    document.getElementById('gpsStatus').innerText = `${gpsStatusMessage} (${formatTimeAgo(lastRefreshTime)})`
+                } else {
+                    document.getElementById('gpsStatus').innerText = gpsStatusMessage;
+                }
+            }, 1000);
+
+            function updateMapAndTable(nearestIndex, actualLat, actualLon) {
+                drawProfile();
+                document.getElementById('currentPositionRow').style.display = '';
+                console.log('Nearest Index:', nearestIndex);
+
+                // Draw current position line
+                const currentX = getX(distances[nearestIndex]);
+                ctx.beginPath();
+                ctx.strokeStyle = 'red';
+                ctx.moveTo(currentX, paddingTop);
+                ctx.lineTo(currentX, height - paddingBottom);
+                ctx.stroke();
+
+                // Draw info on top of the line
+                const currentDist = distances[nearestIndex];
+                const percentage = (currentDist / maxDist) * 100;
+                const ele = elevations[nearestIndex];
+                ctx.fillStyle = 'red';
+                ctx.font = '70px Arial'; // Set a much bigger font for current position info
+
+                let textX = currentX;
+                if (currentX < paddingLeft + 50) {
+                    ctx.textAlign = 'left';
+                    textX = paddingLeft;
+                } else if (currentX > width - paddingRight - 50) {
+                    ctx.textAlign = 'right';
+                    textX = width - paddingRight;
+                } else {
+                    ctx.textAlign = 'center';
+                }
+
+                
+                ctx.fillText(percentage.toFixed(0) + '%', textX, paddingTop - 5);
+
+                ctx.strokeStyle = 'black';
+                ctx.fillStyle = 'black';
+
+                const tableBody = document.querySelector('#itineraryTable tbody');
+
+                document.getElementById('currentDistance').innerText = currentDist.toFixed(1);
+                document.getElementById('currentHeight').innerText = ele.toFixed(0);
+                document.getElementById('currentLat').innerText = lats[nearestIndex].toFixed(5);
+                document.getElementById('currentLon').innerText = lons[nearestIndex].toFixed(5);
+                document.getElementById('currentLink').href = `geo:${actualLat},${actualLon}`;
+
+                const maxEleIndex = elevations.indexOf(maxEle);
+
+                const currentLat = actualLat;
+                const currentLon = actualLon;
+
+                const startBearing = calculateBearing(currentLat, currentLon, lats[0], lons[0]);
+                const highestPointBearing = calculateBearing(currentLat, currentLon, lats[maxEleIndex], lons[maxEleIndex]);
+                const finishBearing = calculateBearing(currentLat, currentLon, lats[lats.length - 1], lons[lats.length - 1]);
+
+                document.getElementById('startDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[0], lons[0]).toFixed(2) + ' km ' + getBearingArrow(startBearing);
+                document.getElementById('currentDistFromCurrent').innerText = '';
+                document.getElementById('highestPointDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[maxEleIndex], lons[maxEleIndex]).toFixed(2) + ' km ' + getBearingArrow(highestPointBearing);
+                document.getElementById('finishDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[lats.length - 1], lons[lats.length - 1]).toFixed(2) + ' km ' + getBearingArrow(finishBearing);
+
+                importantPointsData.forEach((point, index) => {
+                    const dist = haversine(currentLat, currentLon, point.lat, point.lon);
+                    const bearing = calculateBearing(currentLat, currentLon, point.lat, point.lon);
+                    document.getElementById(`importantPointDistFromCurrent_${index}`).innerText = dist.toFixed(2) + ' km ' + getBearingArrow(bearing);
+                });
+
+                sortTable();
+
+                // Scroll to current position
+                const tableContainer = document.getElementById('tableContainer');
+                const currentPositionRow = document.getElementById('currentDistance').closest('tr'); // Find the parent <tr>
+
+                if (tableContainer && currentPositionRow) {
+                    if (isAutoScrollOn) {
+                        currentPositionRow.scrollIntoView({ block: "center" });
+                    }
+                    currentPositionRow.classList.add('current-position-row');
+                }
+            }
+            // Calculate remaining height for tableContainer
+            const canvasHeight = document.getElementById('profileCanvas').offsetHeight;
+
+            const totalOccupiedHeight = canvasHeight;
+            const windowHeight = window.innerHeight;
+            const remainingHeight = windowHeight - totalOccupiedHeight - 25;
+
+            if (tableContainer) {
+                tableContainer.style.height = `${remainingHeight}px`;
+            }
+    });
+    </script>
+    <div id="tableContainer" style="height: 200px; overflow-y: scroll;">
+        <table border="1" width="100%" id="itineraryTable">
+            <thead>
+                <tr>
+                    <th>Distance (km)</th>
+                    <th>Height (m)</th>
+                    <th>Point</th>
+                    <th>Lat</th>
+                    <th>Lon</th>
+                    <th>From Current (km)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td id="startDistance"></td>
+                    <td id="startHeight"></td>
+                    <td><a id="startLink" href="">START</a></td>
+                    <td id="startLat"></td>
+                    <td id="startLon"></td>
+                    <td id="startDistFromCurrent"></td>
+                </tr>
+                <tr id="currentPositionRow" style="display: none;">
+                    <td id="currentDistance"></td>
+                    <td id="currentHeight"></td>
+                    <td><a id="currentLink" href="">Current Position</a></td>
+                    <td id="currentLat"></td>
+                    <td id="currentLon"></td>
+                    <td id="currentDistFromCurrent"></td>
+                </tr>
+                <tr>
+                    <td id="highestPointDistance"></td>
+                    <td id="highestPointHeight"></td>
+                    <td><a id="highestPointLink" href="">Highest Point</a></td>
+                    <td id="highestPointLat"></td>
+                    <td id="highestPointLon"></td>
+                    <td id="highestPointDistFromCurrent"></td>
+                </tr>
+                <tr>
+                    <td id="finishDistance"></td>
+                    <td id="finishHeight"></td>
+                    <td><a id="finishLink" href="">FINISH</a></td>
+                    <td id="finishLat"></td>
+                    <td id="finishLon"></td>
+                    <td id="finishDistFromCurrent"></td>
+                </tr>
+                
+            </tbody>
+        </table>
+    </div>
+    <textarea id="locationLog" style="width: 100%; height: 200px;"></textarea>
+</body>
+</html>
+
