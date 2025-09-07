@@ -335,7 +335,7 @@
                         clearInterval(interval);
                         gpsStatusMessage = 'NOPE';
                         console.error('Error getting user location:', error);
-                    }, { enableHighAccuracy: true });
+                    }, { enableHighAccuracy: true, maximumAge: 100 });
                 } else {
                     clearInterval(interval);
                     gpsStatusMessage = 'NOPE';
