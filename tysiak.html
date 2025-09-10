@@ -1,0 +1,2423 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>tysiak.gpx</title>
+    <style>
+        body { font-family: sans-serif; }
+        canvas { }
+        #itineraryTable th {
+            position: sticky;
+            top: 0;
+            background-color: #f2f2f2; /* Add a background to prevent content from showing through */
+            z-index: 1; /* Ensure it stays on top of scrolling content */
+        }
+        .current-position-row {
+            font-weight: bold;
+            color: red;
+        }
+        #itineraryTable th:nth-child(4),
+        #itineraryTable td:nth-child(4),
+        #itineraryTable th:nth-child(5),
+        #itineraryTable td:nth-child(5) {
+            display: none;
+        }
+        #itineraryTable {
+        }
+        #itineraryTable th {
+            font-size: 2em;
+        }
+        #itineraryTable td {
+            font-size: 3em;
+        }
+        .switch {
+          position: relative;
+          display: inline-block;
+          width: 120px;
+          height: 68px;
+        }
+
+        .switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+
+        .slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: #ccc;
+          -webkit-transition: .4s;
+          transition: .4s;
+        }
+
+        .slider:before {
+          position: absolute;
+          content: "";
+          height: 52px;
+          width: 52px;
+          left: 8px;
+          bottom: 8px;
+          background-color: white;
+          -webkit-transition: .4s;
+          transition: .4s;
+        }
+
+        input:checked + .slider {
+          background-color: #2196F3;
+        }
+
+        input:focus + .slider {
+          box-shadow: 0 0 1px #2196F3;
+        }
+
+        input:checked + .slider:before {
+          -webkit-transform: translateX(52px);
+          -ms-transform: translateX(52px);
+          transform: translateX(52px);
+        }
+
+        /* Rounded sliders */
+        .slider.round {
+          border-radius: 68px;
+        }
+
+        .slider.round:before {
+          border-radius: 50%;
+        }
+        /* Modal styles */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgb(0,0,0); 
+            background-color: rgba(0,0,0,0.4); 
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; 
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; 
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="myModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+    <div style="position: absolute; top: 10px; left: 10px; z-index: 10; font-size: 2em; display: flex; align-items: center; background-color: white; padding: 10px; border-radius: 5px; opacity: 0.6;">
+        <label class="switch">
+          <input type="checkbox" id="autoScrollToggle" checked>
+          <span class="slider round"></span>
+        </label>
+    </div>
+    <div id="gpsStatus" style="position: absolute; top: 10px; right: 10px; z-index: 10; font-size: 2em; opacity: 0.8;"></div>
+    <canvas id="profileCanvas" style="width: 100%; height: 33vh;"></canvas>
+    <script>
+        window.addEventListener('load', function() {
+            const canvas = document.getElementById('profileCanvas');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            const elevations = [78.0, 76.0, 76.0, 75.0, 75.0, 75.0, 75.0, 75.0, 75.0, 76.0, 76.0, 77.0, 77.0, 77.0, 77.0, 78.0, 80.0, 81.0, 83.0, 84.0, 83.0, 82.0, 82.0, 81.0, 81.0, 80.0, 80.0, 80.0, 80.0, 81.0, 83.0, 84.0, 84.0, 84.0, 84.0, 83.0, 82.0, 81.0, 80.0, 79.0, 79.0, 79.0, 80.0, 80.0, 80.0, 80.0, 80.0, 75.0, 73.0, 72.0, 68.0, 68.0, 68.0, 68.0, 68.0, 67.0, 68.0, 69.0, 70.0, 70.0, 71.0, 71.0, 71.0, 72.0, 72.0, 72.0, 73.0, 73.0, 73.0, 72.0, 75.0, 75.0, 74.0, 74.0, 73.0, 73.0, 73.0, 73.0, 73.0, 73.0, 73.0, 73.0, 74.0, 74.0, 76.0, 75.0, 74.0, 73.0, 73.0, 72.0, 71.0, 71.0, 71.0, 71.0, 71.0, 72.0, 72.0, 72.0, 72.0, 72.0, 73.0, 74.0, 74.0, 73.0, 73.0, 73.0, 72.0, 72.0, 72.0, 73.0, 74.0, 73.0, 73.0, 73.0, 74.0, 74.0, 75.0, 76.0, 76.0, 75.0, 75.0, 75.0, 76.0, 76.0, 76.0, 76.0, 76.0, 76.0, 77.0, 77.0, 77.0, 77.0, 76.0, 76.0, 77.0, 77.0, 78.0, 79.0, 79.0, 79.0, 77.0, 76.0, 76.0, 76.0];
+            const distances = [0, 0.04275579894037802, 0.04594953213829285, 0.05290305424323783, 0.0579839822060574, 0.06356728093953844, 0.09285785148389446, 0.09712120790534375, 0.12116646176275828, 0.12611068886133714, 0.12711374084646873, 0.14950634551549452, 0.17047952891148935, 0.18432465630416908, 0.19307091307563956, 0.21110300719495365, 0.22395196918936475, 0.2337617476726439, 0.25947460025599123, 0.2826328840656035, 0.3079215064753178, 0.3163803960700232, 0.3318262240003728, 0.34694869202971346, 0.35481536479925746, 0.36987872576398895, 0.37262897475802953, 0.3754993007395132, 0.38813123141329353, 0.40429081926105054, 0.4450660559563762, 0.47506991594429127, 0.49905029102073767, 0.5087206194788368, 0.5170036811841268, 0.5419671009361442, 0.5714525782918659, 0.6010066677290254, 0.6479811360433043, 0.686651434778407, 0.6955738597039484, 0.719604179597677, 0.7249826527868386, 0.7838484682326045, 0.7924477258654935, 0.7966594268484961, 0.8045642518722781, 0.887126928651274, 0.9050843225596741, 0.913485149423845, 0.9760735399730265, 0.9815647331642915, 0.9855295485859477, 0.9918604432133992, 0.9956442561282144, 1.0183752084402573, 1.0461391300444638, 1.1229065689534514, 1.1716974038151016, 1.199908474724325, 1.2097782667899604, 1.2393311445711093, 1.24712741951765, 1.2501132740757466, 1.2545116465622332, 1.2677067657752792, 1.2758113727005305, 1.282032796949241, 1.299309729993587, 1.3534851741286464, 1.5131506124185448, 1.5319066119441158, 1.544164543942999, 1.5568453050482236, 1.5683235807627616, 1.572190948967486, 1.5785096971110837, 1.5848527703589295, 1.5937992789334208, 1.6048848468604247, 1.6113553446400277, 1.6172152607605788, 1.6287602345570453, 1.6413395923802276, 1.6727065190117407, 1.6955024290729652, 1.7099175509584488, 1.7605350212959714, 1.772834402437341, 1.7830442635097072, 1.8426461910411165, 1.8525462610927268, 1.8627080546717079, 1.8847173613728856, 1.8918582500752164, 1.897899485254117, 1.9039304932949244, 1.9149588079992055, 1.9263574048389671, 1.9369203828676367, 1.9479408725499603, 1.9715386913286215, 1.979968133708814, 1.9928968910539762, 2.0066594796527246, 2.019512036846229, 2.026863566725745, 2.0326559818200924, 2.0379583094699103, 2.0781340293365314, 2.121188703005007, 2.138365477178385, 2.1424128979605648, 2.173187206693085, 2.213133802483173, 2.2184237594173157, 2.231929184423421, 2.2512436195045886, 2.2949715403038895, 2.2986946389901406, 2.3010619575945768, 2.303429276199013, 2.305159072518478, 2.309197355910801, 2.312676976532284, 2.3198679805096707, 2.3215059921627215, 2.326314262759147, 2.3394478690076044, 2.3722066739733565, 2.3737356218492542, 2.4043220931622074, 2.4172433953845185, 2.440498423929994, 2.44750703211432, 2.4549978275932913, 2.482869158812533, 2.487478377964399, 2.488703403124896, 2.5289135476927402, 2.561787847105069, 2.607350040084537, 2.6177284740564177, 2.6322059746114213];
+            const lats = [52.393925, 52.394273, 52.394299, 52.39433, 52.394375, 52.39441, 52.394637, 52.394661, 52.394787, 52.394797, 52.394806, 52.394808, 52.394923, 52.394986, 52.395059, 52.395204, 52.395314, 52.395397, 52.395587, 52.395732, 52.395899, 52.395937, 52.395977, 52.396015, 52.396045, 52.396044, 52.396048, 52.396058, 52.39612, 52.396196, 52.396387, 52.39653, 52.39666, 52.396713, 52.396751, 52.396869, 52.397003, 52.397134, 52.397322, 52.397463, 52.397503, 52.397593, 52.397597, 52.397809, 52.397825, 52.39784, 52.397882, 52.398178, 52.398219, 52.39826, 52.398483, 52.398503, 52.398474, 52.398422, 52.398391, 52.398205, 52.397964, 52.397299, 52.396877, 52.396632, 52.396546, 52.396289, 52.396221, 52.396195, 52.396157, 52.396043, 52.395972, 52.395918, 52.395767, 52.395299, 52.393914, 52.393752, 52.393643, 52.393529, 52.393427, 52.393394, 52.39334, 52.39329, 52.393223, 52.393151, 52.393109, 52.393079, 52.39302, 52.392965, 52.392842, 52.392763, 52.392729, 52.392667, 52.392654, 52.392565, 52.392032, 52.391943, 52.391901, 52.391832, 52.391812, 52.391794, 52.391768, 52.391711, 52.39165, 52.391591, 52.39153, 52.39138, 52.391321, 52.391236, 52.391141, 52.391044, 52.390986, 52.390941, 52.390899, 52.39058, 52.39021, 52.390095, 52.390068, 52.389866, 52.389603, 52.389566, 52.389471, 52.389339, 52.38905, 52.38903, 52.389013, 52.38903, 52.389043, 52.389074, 52.389105, 52.389161, 52.389173, 52.389196, 52.389291, 52.389548, 52.38956, 52.38981, 52.389919, 52.390112, 52.390173, 52.390238, 52.390482, 52.390523, 52.390534, 52.390894, 52.391189, 52.391597, 52.391688, 52.391818];
+            const lons = [16.981058, 16.981326, 16.981346, 16.981257, 16.981244, 16.981185, 16.980966, 16.980917, 16.980629, 16.980558, 16.980557, 16.980227, 16.980472, 16.980648, 16.980696, 16.980815, 16.980873, 16.980922, 16.981138, 16.981383, 16.981636, 16.981744, 16.981962, 16.982176, 16.982281, 16.982503, 16.982543, 16.982582, 16.982426, 16.982223, 16.98171, 16.981335, 16.981053, 16.98094, 16.980835, 16.980522, 16.980147, 16.979768, 16.979148, 16.978627, 16.978513, 16.978191, 16.978112, 16.977317, 16.977193, 16.977136, 16.977042, 16.975926, 16.97567, 16.975566, 16.974719, 16.974645, 16.974611, 16.974573, 16.97455, 16.974411, 16.974304, 16.974, 16.973803, 16.973695, 16.973659, 16.973548, 16.97352, 16.973509, 16.973491, 16.973437, 16.97341, 16.973386, 16.973326, 16.973104, 16.972483, 16.972406, 16.972379, 16.972374, 16.9724, 16.972418, 16.972447, 16.972492, 16.972565, 16.972678, 16.972744, 16.972815, 16.972955, 16.973117, 16.973533, 16.973843, 16.974048, 16.974787, 16.974967, 16.975004, 16.975097, 16.975101, 16.975234, 16.975538, 16.975638, 16.975722, 16.9758, 16.975933, 16.976068, 16.97619, 16.976318, 16.976564, 16.976642, 16.976772, 16.976902, 16.977005, 16.977057, 16.9771, 16.977137, 16.977415, 16.977602, 16.977771, 16.977811, 16.978121, 16.978522, 16.978571, 16.978695, 16.97888, 16.979317, 16.979361, 16.979382, 16.979361, 16.979375, 16.979406, 16.979399, 16.979452, 16.979466, 16.979406, 16.979521, 16.979757, 16.979768, 16.979956, 16.980022, 16.980154, 16.98018, 16.980209, 16.980303, 16.980313, 16.980314, 16.98037, 16.980402, 16.980464, 16.980498, 16.9805098];
+            const importantPointsData = [{"name": "recycling", "lat": 52.3938217, "lon": 16.9817687, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "waste_disposal", "lat": 52.3938448, "lon": 16.9818273, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "recycling", "lat": 52.3934174, "lon": 16.9804415, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "waste_basket", "lat": 52.3930607, "lon": 16.9808716, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "bench", "lat": 52.3940296, "lon": 16.9797983, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "bench", "lat": 52.3937697, "lon": 16.9798368, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "waste_basket", "lat": 52.393752, "lon": 16.9797941, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "bench", "lat": 52.3939197, "lon": 16.9799641, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "waste_basket", "lat": 52.3941187, "lon": 16.9800442, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "bench", "lat": 52.3940965, "lon": 16.9800293, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "waste_basket", "lat": 52.3939017, "lon": 16.9804157, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "bench", "lat": 52.3932708, "lon": 16.9814928, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "waste_basket", "lat": 52.3932278, "lon": 16.9805495, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "waste_basket", "lat": 52.393221, "lon": 16.9814319, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "shelter", "lat": 52.39309442, "lon": 16.9808965, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "waste_disposal", "lat": 52.3934128, "lon": 16.9818051, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "shelter", "lat": 52.39319536000001, "lon": 16.98051878, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "waste_disposal", "lat": 52.39338352, "lon": 16.9804894, "trail_distance": 0, "trail_elevation": 78.0}, {"name": "vending_machine", "lat": 52.3939182, "lon": 16.9820455, "trail_distance": 0.04275579894037802, "trail_elevation": 76.0}, {"name": "recycling", "lat": 52.3943005, "lon": 16.9807177, "trail_distance": 0.06356728093953844, "trail_elevation": 75.0}, {"name": "waste_disposal", "lat": 52.3943271, "lon": 16.9807915, "trail_distance": 0.06356728093953844, "trail_elevation": 75.0}, {"name": "bench", "lat": 52.3944295, "lon": 16.9807206, "trail_distance": 0.09285785148389446, "trail_elevation": 75.0}, {"name": "fitness_station", "lat": 52.394861, "lon": 16.9799719, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "playground", "lat": 52.3949708, "lon": 16.9798671, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.3947996, "lon": 16.9801233, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.3946609, "lon": 16.9801211, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "waste_basket", "lat": 52.3945633, "lon": 16.980088, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.3945325, "lon": 16.9800905, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "waste_basket", "lat": 52.394055, "lon": 16.979682, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "waste_basket", "lat": 52.3942681, "lon": 16.9800477, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.3942021, "lon": 16.980043, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.3942256, "lon": 16.980043, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.3942698, "lon": 16.9798863, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.394234, "lon": 16.9798381, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.394133, "lon": 16.979702, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.3941692, "lon": 16.9795447, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.3942843, "lon": 16.9801877, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.394345, "lon": 16.980213, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "waste_basket", "lat": 52.3940743, "lon": 16.9795108, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.3948037, "lon": 16.9788137, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.3943669, "lon": 16.9796086, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.3945775, "lon": 16.9796666, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "recycling", "lat": 52.3951308, "lon": 16.9789007, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "playground", "lat": 52.39418324, "lon": 16.97987258, "trail_distance": 0.14950634551549452, "trail_elevation": 77.0}, {"name": "pitch", "lat": 52.39509048333333, "lon": 16.98025803333333, "trail_distance": 0.17047952891148935, "trail_elevation": 77.0}, {"name": "pitch", "lat": 52.395181642857146, "lon": 16.980106842857143, "trail_distance": 0.17047952891148935, "trail_elevation": 77.0}, {"name": "waste_basket", "lat": 52.3950507, "lon": 16.9808028, "trail_distance": 0.19307091307563956, "trail_elevation": 77.0}, {"name": "waste_basket", "lat": 52.3950751, "lon": 16.9815459, "trail_distance": 0.21110300719495365, "trail_elevation": 78.0}, {"name": "bench", "lat": 52.3950839, "lon": 16.9810232, "trail_distance": 0.21110300719495365, "trail_elevation": 78.0}, {"name": "bench", "lat": 52.3950581, "lon": 16.9812497, "trail_distance": 0.21110300719495365, "trail_elevation": 78.0}, {"name": "waste_basket", "lat": 52.395662, "lon": 16.9824511, "trail_distance": 0.36987872576398895, "trail_elevation": 80.0}, {"name": "bench", "lat": 52.3956955, "lon": 16.9824753, "trail_distance": 0.36987872576398895, "trail_elevation": 80.0}, {"name": "map", "lat": 52.3958234, "lon": 16.983118, "trail_distance": 0.3754993007395132, "trail_elevation": 80.0}, {"name": "map", "lat": 52.396178, "lon": 16.9830769, "trail_distance": 0.3754993007395132, "trail_elevation": 80.0}, {"name": "waste_basket", "lat": 52.3958029, "lon": 16.9830842, "trail_distance": 0.3754993007395132, "trail_elevation": 80.0}, {"name": "waste_basket", "lat": 52.3962779, "lon": 16.9827061, "trail_distance": 0.3754993007395132, "trail_elevation": 80.0}, {"name": "shelter", "lat": 52.39577962, "lon": 16.983372199999998, "trail_distance": 0.3754993007395132, "trail_elevation": 80.0}, {"name": "shelter", "lat": 52.396464820000006, "lon": 16.98220458, "trail_distance": 0.40429081926105054, "trail_elevation": 81.0}, {"name": "waste_basket", "lat": 52.3964876, "lon": 16.9821383, "trail_distance": 0.4450660559563762, "trail_elevation": 83.0}, {"name": "waste_basket", "lat": 52.3976974, "lon": 16.9784843, "trail_distance": 0.6955738597039484, "trail_elevation": 79.0}, {"name": "peak Kopiec Wolno\u015bci", "lat": 52.3984367, "lon": 16.9785241, "wikidata": "Q11743507", "html": "<p>Wst\u0119p Kopiec Wolno\u015bci \u2013 kopiec znajduj\u0105cy si\u0119 w Poznaniu, na prawym brzegu Warty w dzielnicy Malta, na osiedlu administracyjnym Chartowo[1]; pierwotnie usypany dla uczczenia zwyci\u0119skiego powstania wielkopolskiego i przy\u0142\u0105czenia regionu do niepodleg\u0142ej Polski. Odbudowany[2] ma symbolizowa\u0107 szeroko rozumian\u0105 wolno\u015b\u0107 jako najwi\u0119ksz\u0105 warto\u015b\u0107 cz\u0142owieka. Zamiar budowy kopca powsta\u0142 ju\u017c w 1917, kiedy to planowano w tajemnicy przed zaborc\u0105 budow\u0119 wielkiego Parku Ludowego na obecnych terenach malta\u0144skich, kt\u00f3re by\u0142y najpopularniejszym miejscem rekreacji Polak\u00f3w pozna\u0144skich \u2013 mo\u017cna tu by\u0142o swobodnie rozmawia\u0107 po polsku, \u0107wiczy\u0107, a ponadto mieszka\u0142o tu niewielu Niemc\u00f3w. Planowano boiska, \u0142azienki i domy gimnastyczne[3]. Uroczysta inauguracja budowy Kopca Zmartwychwstania (bo tak pocz\u0105tkowo by\u0142 nazywany) przypada\u0142a w dniu \u015bwi\u0119ta narodowego \u2013 3 maja 1919 roku. Przez miasto przeszed\u0142 poch\u00f3d, w kt\u00f3rym uczestniczyli mi\u0119dzy innymi: prezydent, prymas Polski oraz ministrowie, a przem\u00f3wienie wyg\u0142osi\u0142 jeden z inicjator\u00f3w budowy \u2013 ksi\u0105dz kanonik \u0141ukomski[4]. W pracach budowlanych, opr\u00f3cz mieszka\u0144c\u00f3w Poznania i Wielkopolski, udzia\u0142 brali tak\u017ce \u2013 przybywaj\u0105cy indywidualnie \u2013 go\u015bcie z innych teren\u00f3w Polski. Ostateczna bry\u0142a kopca uformowa\u0142a si\u0119 w 1922 roku. Pomnik osi\u0105gn\u0105\u0142 wysoko\u015b\u0107 94 metr\u00f3w n.p.m., co pozwoli\u0142o mu wznie\u015b\u0107 sw\u00f3j szczyt 17 metr\u00f3w nad poziom szosy Kobylepolskiej (obecnie ul. abpa. Baraniaka). Zosta\u0142 rozebrany w czasie okupacji hitlerowskiej, poprzez niewolnicz\u0105 prac\u0119; cz\u0119sto tych samych ludzi, kt\u00f3rzy go usypywali. Usytuowanie kopca odbiega\u0142o nieco od dzisiejszego, kt\u00f3ry jest cz\u0119\u015bciow\u0105 replik\u0105 poprzedniego. Tor saneczkowy Malta Ski na tle kopca W 1979 roku podj\u0119to decyzj\u0119 o remoncie niecki wybudowanego w latach 50. Jeziora Malta\u0144skiego, w celu przygotowania go do odbycia Mistrzostw \u015awiata w Kajakarstwie, kt\u00f3rych gospodarzem mia\u0142 by\u0107 Pozna\u0144 w sierpniu 1990 roku. W okresie Polski Ludowej ze wzgl\u0119d\u00f3w politycznych nie by\u0142o plan\u00f3w odbudowy przedwojennego Kopca Wolno\u015bci. Jednak, aby pog\u0142\u0119bi\u0107 jezioro i przywr\u00f3ci\u0107 jego parametry jako toru regatowego, nale\u017ca\u0142o wydoby\u0107 z jego dna, a nast\u0119pnie wywie\u017a\u0107 ogromne ilo\u015bci ziemi. Koszty jej transportu by\u0142yby zbyt wysokie, dlatego w pobli\u017cu zbiornika postanowiono usypa\u0107 wzniesienie, kt\u00f3rego projektodawc\u0105 by\u0142 Klemens Miku\u0142a[5]. \u017beby nikt nie zosta\u0142 pos\u0105dzony przez komunistyczn\u0105 w\u0142adz\u0119 o ukryte zamiary odbudowy wolno\u015bciowego pomnika, oficjalnym powodem usypania wzg\u00f3rza by\u0142o zagospodarowanie na Malcie kompleksu sportowo-rekreacyjnego (m.in. z ca\u0142orocznym stokiem narciarskim, torem saneczkowym oraz polem do nauki gry w golfa). Kopiec ma wysoko\u015b\u0107 100[6] metr\u00f3w n.p.m., nadal jednak pozostaje w swojej niedoko\u0144czonej formie z powodu problem\u00f3w terenowo-prawnych. 17 maja 1984 decyzj\u0105 prezydenta Poznania Andrzeja Wituskiego[3] utworzono Spo\u0142eczny Komitet Odbudowy Kopca Wolno\u015bci, kt\u00f3rego prezesem zosta\u0142 prof. Jerzy Bogucki. Oficjalne zlecenie na realizacj\u0119 kopca z\u0142o\u017cono 27 czerwca 1985. W sierpniu 1986 zlecono prace budowlane Zak\u0142adowi Zadrzewie\u0144 Zieleni i Rekultywacji LOP. Teren budowy przygotowano do ko\u0144ca 1987[7]. W 2004 roku powsta\u0142o stowarzyszenie Kopiec Wolno\u015bci w Poznaniu, kt\u00f3rego zamiarem jest sfinalizowanie budowy Kopca Wolno\u015bci. Odtworzony kopiec ma by\u0107 wy\u017cszy od swego poprzednika i wznosi\u0107 si\u0119 na oko\u0142o 30 metr\u00f3w ponad powierzchni\u0119 ulicy, a na jego szczycie planowana jest platforma widokowa z \u0142aweczkami i rze\u017ab\u0105 ptaka wzbijaj\u0105cego si\u0119 do lotu; na skraju za\u015b murek z ukrytymi lampami[6]. Kopiec Wolno\u015bci oficjalnie otworzy\u0142 w setn\u0105 rocznic\u0119 odzyskania niepodleg\u0142o\u015bci wiceprezydent Poznania Mariusz Wi\u015bniewski[8]. </p>", "trail_distance": 0.719604179597677, "trail_elevation": 79.0}, {"name": "bench", "lat": 52.3984212, "lon": 16.9786543, "trail_distance": 0.719604179597677, "trail_elevation": 79.0}, {"name": "bench", "lat": 52.3987702, "lon": 16.975858, "trail_distance": 0.913485149423845, "trail_elevation": 72.0}, {"name": "bench", "lat": 52.3987857, "lon": 16.9757973, "trail_distance": 0.913485149423845, "trail_elevation": 72.0}, {"name": "waste_basket", "lat": 52.3987821, "lon": 16.9756155, "trail_distance": 0.913485149423845, "trail_elevation": 72.0}, {"name": "shelter", "lat": 52.398254442857144, "lon": 16.975519771428573, "trail_distance": 0.913485149423845, "trail_elevation": 72.0}, {"name": "waste_basket", "lat": 52.3986603, "lon": 16.9748924, "trail_distance": 0.9760735399730265, "trail_elevation": 68.0}, {"name": "waste_basket", "lat": 52.3988522, "lon": 16.9752279, "trail_distance": 0.9760735399730265, "trail_elevation": 68.0}, {"name": "bench", "lat": 52.398872, "lon": 16.9752727, "trail_distance": 0.9760735399730265, "trail_elevation": 68.0}, {"name": "bench", "lat": 52.398944, "lon": 16.975475, "trail_distance": 0.9760735399730265, "trail_elevation": 68.0}, {"name": "waste_basket", "lat": 52.3985725, "lon": 16.9752725, "trail_distance": 0.9760735399730265, "trail_elevation": 68.0}, {"name": "waste_basket", "lat": 52.3985165, "lon": 16.9744327, "trail_distance": 0.9855295485859477, "trail_elevation": 68.0}, {"name": "recycling", "lat": 52.3961724, "lon": 16.9743018, "trail_distance": 1.2393311445711093, "trail_elevation": 71.0}, {"name": "waste_disposal", "lat": 52.396219, "lon": 16.974311911111112, "trail_distance": 1.2393311445711093, "trail_elevation": 71.0}, {"name": "waste_basket", "lat": 52.3957648, "lon": 16.9747942, "trail_distance": 1.2758113727005305, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3957193, "lon": 16.9747891, "trail_distance": 1.2758113727005305, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3957703, "lon": 16.9747587, "trail_distance": 1.2758113727005305, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.39579, "lon": 16.9741853, "trail_distance": 1.282032796949241, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3958097, "lon": 16.9732684, "trail_distance": 1.299309729993587, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3955306, "lon": 16.9746742, "trail_distance": 1.299309729993587, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3953391, "lon": 16.974491, "trail_distance": 1.299309729993587, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3954276, "lon": 16.9739542, "trail_distance": 1.299309729993587, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3955982, "lon": 16.9740632, "trail_distance": 1.299309729993587, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3951104, "lon": 16.9745209, "trail_distance": 1.3534851741286464, "trail_elevation": 72.0}, {"name": "bench", "lat": 52.3948636, "lon": 16.9743132, "trail_distance": 1.3534851741286464, "trail_elevation": 72.0}, {"name": "bench", "lat": 52.3946421, "lon": 16.9737269, "trail_distance": 1.3534851741286464, "trail_elevation": 72.0}, {"name": "bench", "lat": 52.3949404, "lon": 16.9737358, "trail_distance": 1.3534851741286464, "trail_elevation": 72.0}, {"name": "waste_basket", "lat": 52.394973, "lon": 16.9737406, "trail_distance": 1.3534851741286464, "trail_elevation": 72.0}, {"name": "bench", "lat": 52.3950163, "lon": 16.9737507, "trail_distance": 1.3534851741286464, "trail_elevation": 72.0}, {"name": "bench", "lat": 52.3951558, "lon": 16.9738029, "trail_distance": 1.3534851741286464, "trail_elevation": 72.0}, {"name": "scree", "lat": 52.39517674, "lon": 16.9731032, "trail_distance": 1.3534851741286464, "trail_elevation": 72.0}, {"name": "scree", "lat": 52.39512022, "lon": 16.97307284, "trail_distance": 1.3534851741286464, "trail_elevation": 72.0}, {"name": "bench", "lat": 52.393797, "lon": 16.9737501, "trail_distance": 1.5131506124185448, "trail_elevation": 75.0}, {"name": "bench", "lat": 52.3940627, "lon": 16.9737424, "trail_distance": 1.5131506124185448, "trail_elevation": 75.0}, {"name": "bench", "lat": 52.3941147, "lon": 16.9737425, "trail_distance": 1.5131506124185448, "trail_elevation": 75.0}, {"name": "bench", "lat": 52.3942205, "lon": 16.9737395, "trail_distance": 1.5131506124185448, "trail_elevation": 75.0}, {"name": "waste_basket", "lat": 52.3937704, "lon": 16.9723169, "trail_distance": 1.5319066119441158, "trail_elevation": 75.0}, {"name": "waste_basket", "lat": 52.3933525, "lon": 16.9718732, "trail_distance": 1.5683235807627616, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3924551, "lon": 16.9720362, "trail_distance": 1.6113553446400277, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3924682, "lon": 16.9719592, "trail_distance": 1.6113553446400277, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3924857, "lon": 16.9718465, "trail_distance": 1.6113553446400277, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3924585, "lon": 16.9720115, "trail_distance": 1.6113553446400277, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3925005, "lon": 16.971795, "trail_distance": 1.6113553446400277, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3924166, "lon": 16.9720264, "trail_distance": 1.6172152607605788, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3925585, "lon": 16.9723256, "trail_distance": 1.6172152607605788, "trail_elevation": 73.0}, {"name": "shelter", "lat": 52.392411519999996, "lon": 16.972086400000002, "trail_distance": 1.6172152607605788, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3924695, "lon": 16.9722908, "trail_distance": 1.6287602345570453, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3923927, "lon": 16.9721548, "trail_distance": 1.6287602345570453, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3924256, "lon": 16.9722548, "trail_distance": 1.6287602345570453, "trail_elevation": 74.0}, {"name": "bridge", "lat": 52.39265925, "lon": 16.97249805, "trail_distance": 1.6287602345570453, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3923347, "lon": 16.9726812, "trail_distance": 1.6413395923802276, "trail_elevation": 74.0}, {"name": "bench", "lat": 52.3923341, "lon": 16.9726462, "trail_distance": 1.6413395923802276, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3923578, "lon": 16.9732086, "trail_distance": 1.6727065190117407, "trail_elevation": 76.0}, {"name": "waste_basket", "lat": 52.392369, "lon": 16.9730164, "trail_distance": 1.6727065190117407, "trail_elevation": 76.0}, {"name": "waste_basket", "lat": 52.3922823, "lon": 16.9729224, "trail_distance": 1.6727065190117407, "trail_elevation": 76.0}, {"name": "bench", "lat": 52.3923686, "lon": 16.9732613, "trail_distance": 1.6727065190117407, "trail_elevation": 76.0}, {"name": "bench", "lat": 52.3923742, "lon": 16.9730678, "trail_distance": 1.6727065190117407, "trail_elevation": 76.0}, {"name": "bench", "lat": 52.3922867, "lon": 16.9728747, "trail_distance": 1.6727065190117407, "trail_elevation": 76.0}, {"name": "waste_basket", "lat": 52.3934164, "lon": 16.9737563, "trail_distance": 1.6727065190117407, "trail_elevation": 76.0}, {"name": "bench", "lat": 52.3933639, "lon": 16.9737586, "trail_distance": 1.6727065190117407, "trail_elevation": 76.0}, {"name": "recycling", "lat": 52.3927697, "lon": 16.9739154, "trail_distance": 1.6955024290729652, "trail_elevation": 75.0}, {"name": "waste_basket", "lat": 52.3923921, "lon": 16.9734396, "trail_distance": 1.6955024290729652, "trail_elevation": 75.0}, {"name": "bench", "lat": 52.3924002, "lon": 16.9734803, "trail_distance": 1.6955024290729652, "trail_elevation": 75.0}, {"name": "bench", "lat": 52.3922741, "lon": 16.9736068, "trail_distance": 1.6955024290729652, "trail_elevation": 75.0}, {"name": "waste_basket", "lat": 52.3922806, "lon": 16.9735593, "trail_distance": 1.6955024290729652, "trail_elevation": 75.0}, {"name": "bridge", "lat": 52.392485, "lon": 16.9736422, "trail_distance": 1.6955024290729652, "trail_elevation": 75.0}, {"name": "waste_disposal", "lat": 52.39282763999999, "lon": 16.973761739999997, "trail_distance": 1.6955024290729652, "trail_elevation": 75.0}, {"name": "bench", "lat": 52.3922661, "lon": 16.973847, "trail_distance": 1.7099175509584488, "trail_elevation": 74.0}, {"name": "bench", "lat": 52.392323, "lon": 16.9740052, "trail_distance": 1.7099175509584488, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3922739, "lon": 16.9738067, "trail_distance": 1.7099175509584488, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3923361, "lon": 16.9739663, "trail_distance": 1.7099175509584488, "trail_elevation": 74.0}, {"name": "playground", "lat": 52.39359316, "lon": 16.97442652, "trail_distance": 1.7099175509584488, "trail_elevation": 74.0}, {"name": "recycling", "lat": 52.3926704, "lon": 16.9751162, "trail_distance": 1.772834402437341, "trail_elevation": 73.0}, {"name": "waste_disposal", "lat": 52.39269286, "lon": 16.97510558, "trail_distance": 1.772834402437341, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3920996, "lon": 16.9752674, "trail_distance": 1.8426461910411165, "trail_elevation": 71.0}, {"name": "bench", "lat": 52.3921221, "lon": 16.9750541, "trail_distance": 1.8426461910411165, "trail_elevation": 71.0}, {"name": "bench", "lat": 52.3921417, "lon": 16.9745471, "trail_distance": 1.8426461910411165, "trail_elevation": 71.0}, {"name": "waste_basket", "lat": 52.3921565, "lon": 16.9745028, "trail_distance": 1.8426461910411165, "trail_elevation": 71.0}, {"name": "waste_basket", "lat": 52.3920488, "lon": 16.9746926, "trail_distance": 1.8426461910411165, "trail_elevation": 71.0}, {"name": "waste_basket", "lat": 52.3920918, "lon": 16.9750588, "trail_distance": 1.8426461910411165, "trail_elevation": 71.0}, {"name": "waste_basket", "lat": 52.3920742, "lon": 16.9752499, "trail_distance": 1.8426461910411165, "trail_elevation": 71.0}, {"name": "waste_basket", "lat": 52.3922653, "lon": 16.9753498, "trail_distance": 1.8426461910411165, "trail_elevation": 71.0}, {"name": "waste_basket", "lat": 52.3922413, "lon": 16.9753264, "trail_distance": 1.8426461910411165, "trail_elevation": 71.0}, {"name": "nature_reserve Traszki Ratajskie", "lat": 52.392261774999994, "lon": 16.97472023653846, "trail_distance": 1.8426461910411165, "trail_elevation": 71.0}, {"name": "dog_park", "lat": 52.3911004, "lon": 16.974801, "trail_distance": 1.8627080546717079, "trail_elevation": 71.0}, {"name": "bench", "lat": 52.3918769, "lon": 16.9756496, "trail_distance": 1.8918582500752164, "trail_elevation": 71.0}, {"name": "waste_basket", "lat": 52.3918524, "lon": 16.9756362, "trail_distance": 1.8918582500752164, "trail_elevation": 71.0}, {"name": "bench", "lat": 52.3917632, "lon": 16.9757509, "trail_distance": 1.9039304932949244, "trail_elevation": 72.0}, {"name": "waste_basket", "lat": 52.3917505, "lon": 16.9757898, "trail_distance": 1.9039304932949244, "trail_elevation": 72.0}, {"name": "bench", "lat": 52.3917288, "lon": 16.9759407, "trail_distance": 1.9149588079992055, "trail_elevation": 72.0}, {"name": "waste_basket", "lat": 52.3917124, "lon": 16.9759789, "trail_distance": 1.9149588079992055, "trail_elevation": 72.0}, {"name": "waste_basket", "lat": 52.3912646, "lon": 16.9756156, "trail_distance": 1.9263574048389671, "trail_elevation": 72.0}, {"name": "park Park na os. Tysi\u0105clecia", "lat": 52.391665207978726, "lon": 16.976013972340425, "trail_distance": 1.9263574048389671, "trail_elevation": 72.0}, {"name": "waste_basket", "lat": 52.3916523, "lon": 16.9762981, "trail_distance": 1.9369203828676367, "trail_elevation": 72.0}, {"name": "bench", "lat": 52.3916821, "lon": 16.9763021, "trail_distance": 1.9369203828676367, "trail_elevation": 72.0}, {"name": "shelter", "lat": 52.391235640000005, "lon": 16.97568386, "trail_distance": 1.9369203828676367, "trail_elevation": 72.0}, {"name": "waste_basket", "lat": 52.3913349, "lon": 16.9763306, "trail_distance": 1.9715386913286215, "trail_elevation": 74.0}, {"name": "bench", "lat": 52.3913637, "lon": 16.9763316, "trail_distance": 1.9715386913286215, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3919511, "lon": 16.9776567, "trail_distance": 1.9715386913286215, "trail_elevation": 74.0}, {"name": "bench", "lat": 52.3919396, "lon": 16.9776387, "trail_distance": 1.9715386913286215, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3912631, "lon": 16.9764349, "trail_distance": 1.979968133708814, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3914495, "lon": 16.9769278, "trail_distance": 1.979968133708814, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3915414, "lon": 16.977014, "trail_distance": 1.979968133708814, "trail_elevation": 74.0}, {"name": "bench", "lat": 52.3915328, "lon": 16.9769956, "trail_distance": 1.979968133708814, "trail_elevation": 74.0}, {"name": "bench", "lat": 52.3914701, "lon": 16.976964, "trail_distance": 1.979968133708814, "trail_elevation": 74.0}, {"name": "bench", "lat": 52.3912749, "lon": 16.9764738, "trail_distance": 1.979968133708814, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3910337, "lon": 16.9759694, "trail_distance": 1.979968133708814, "trail_elevation": 74.0}, {"name": "bench", "lat": 52.3915729, "lon": 16.9781594, "trail_distance": 2.0066594796527246, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3912956, "lon": 16.9782539, "trail_distance": 2.0326559818200924, "trail_elevation": 72.0}, {"name": "waste_basket", "lat": 52.3907376, "lon": 16.9787928, "trail_distance": 2.0781340293365314, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3907656, "lon": 16.9787933, "trail_distance": 2.0781340293365314, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3905434, "lon": 16.9782866, "trail_distance": 2.0781340293365314, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3906537, "lon": 16.9785895, "trail_distance": 2.0781340293365314, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3906552, "lon": 16.9785482, "trail_distance": 2.0781340293365314, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3904208, "lon": 16.9780362, "trail_distance": 2.121188703005007, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3903636, "lon": 16.9779165, "trail_distance": 2.121188703005007, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3903035, "lon": 16.9777933, "trail_distance": 2.121188703005007, "trail_elevation": 74.0}, {"name": "bench", "lat": 52.3904629, "lon": 16.9781199, "trail_distance": 2.121188703005007, "trail_elevation": 74.0}, {"name": "bench", "lat": 52.3904038, "lon": 16.9779978, "trail_distance": 2.121188703005007, "trail_elevation": 74.0}, {"name": "bench", "lat": 52.3903458, "lon": 16.9778779, "trail_distance": 2.121188703005007, "trail_elevation": 74.0}, {"name": "bench", "lat": 52.3902875, "lon": 16.9777594, "trail_distance": 2.121188703005007, "trail_elevation": 74.0}, {"name": "board", "lat": 52.3903527, "lon": 16.9775857, "trail_distance": 2.121188703005007, "trail_elevation": 74.0}, {"name": "vending_machine", "lat": 52.3900156, "lon": 16.9761661, "trail_distance": 2.121188703005007, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.3905794, "lon": 16.9785756, "trail_distance": 2.138365477178385, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3905794, "lon": 16.978526, "trail_distance": 2.138365477178385, "trail_elevation": 73.0}, {"name": "vending_machine", "lat": 52.3899987, "lon": 16.9777933, "trail_distance": 2.1424128979605648, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3900092, "lon": 16.9777778, "trail_distance": 2.1424128979605648, "trail_elevation": 73.0}, {"name": "scree", "lat": 52.38997682, "lon": 16.97791044, "trail_distance": 2.1424128979605648, "trail_elevation": 73.0}, {"name": "tower", "lat": 52.3901463, "lon": 16.9789348, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3900269, "lon": 16.9782019, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3900163, "lon": 16.9781645, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "bench", "lat": 52.3900048, "lon": 16.978127, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3898808, "lon": 16.9780559, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3898209, "lon": 16.9777892, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3897655, "lon": 16.9781103, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "waste_basket", "lat": 52.3898634, "lon": 16.9779616, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "bridge", "lat": 52.39034495, "lon": 16.979013000000002, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "scree", "lat": 52.38974105, "lon": 16.978195491666668, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "fitness_station", "lat": 52.38999032, "lon": 16.97817234, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "scree", "lat": 52.38972818571428, "lon": 16.977895285714286, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "shelter", "lat": 52.389689880000006, "lon": 16.9782275, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "shelter", "lat": 52.389803240000006, "lon": 16.9780558, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "shelter", "lat": 52.389765499999996, "lon": 16.97788922, "trail_distance": 2.173187206693085, "trail_elevation": 73.0}, {"name": "memorial Matka Bo\u017ca", "lat": 52.3899034, "lon": 16.9789245, "trail_distance": 2.213133802483173, "trail_elevation": 74.0}, {"name": "waste_basket", "lat": 52.389673, "lon": 16.9782496, "trail_distance": 2.213133802483173, "trail_elevation": 74.0}, {"name": "scree", "lat": 52.389644128571426, "lon": 16.9784178, "trail_distance": 2.213133802483173, "trail_elevation": 74.0}, {"name": "shelter", "lat": 52.389647960000005, "lon": 16.97829094, "trail_distance": 2.213133802483173, "trail_elevation": 74.0}, {"name": "scree", "lat": 52.389677766666665, "lon": 16.980475416666668, "trail_distance": 2.4043220931622074, "trail_elevation": 77.0}, {"name": "wayside_cross", "lat": 52.3901122, "lon": 16.979371, "trail_distance": 2.4172433953845185, "trail_elevation": 76.0}, {"name": "waste_basket", "lat": 52.3902705, "lon": 16.9796392, "trail_distance": 2.44750703211432, "trail_elevation": 77.0}, {"name": "waste_basket", "lat": 52.3905325, "lon": 16.9793893, "trail_distance": 2.482869158812533, "trail_elevation": 78.0}, {"name": "bench", "lat": 52.3905333, "lon": 16.9793438, "trail_distance": 2.482869158812533, "trail_elevation": 78.0}, {"name": "waste_basket", "lat": 52.3906393, "lon": 16.9793323, "trail_distance": 2.488703403124896, "trail_elevation": 79.0}, {"name": "bench", "lat": 52.3906383, "lon": 16.9793682, "trail_distance": 2.488703403124896, "trail_elevation": 79.0}, {"name": "bench", "lat": 52.3906179, "lon": 16.9789874, "trail_distance": 2.488703403124896, "trail_elevation": 79.0}, {"name": "waste_basket", "lat": 52.3906178, "lon": 16.9789754, "trail_distance": 2.488703403124896, "trail_elevation": 79.0}, {"name": "waste_basket", "lat": 52.3908064, "lon": 16.9798555, "trail_distance": 2.5289135476927402, "trail_elevation": 79.0}, {"name": "playground", "lat": 52.391084, "lon": 16.9794598, "trail_distance": 2.561787847105069, "trail_elevation": 77.0}, {"name": "fitness_station", "lat": 52.3914288, "lon": 16.9790838, "trail_distance": 2.561787847105069, "trail_elevation": 77.0}, {"name": "bench", "lat": 52.3917502, "lon": 16.9796626, "trail_distance": 2.607350040084537, "trail_elevation": 76.0}, {"name": "restaurant Country Grill Bar", "lat": 52.3916239, "lon": 16.9809075, "trail_distance": 2.6177284740564177, "trail_elevation": 76.0}, {"name": "bench", "lat": 52.3922573, "lon": 16.9796767, "trail_distance": 2.6322059746114213, "trail_elevation": 76.0}, {"name": "map", "lat": 52.3923761, "lon": 16.9800364, "trail_distance": 2.6322059746114213, "trail_elevation": 76.0}, {"name": "waste_basket", "lat": 52.3921981, "lon": 16.9800118, "trail_distance": 2.6322059746114213, "trail_elevation": 76.0}, {"name": "waste_basket", "lat": 52.3924388, "lon": 16.9812594, "trail_distance": 2.6322059746114213, "trail_elevation": 76.0}, {"name": "bench", "lat": 52.3924951, "lon": 16.9811836, "trail_distance": 2.6322059746114213, "trail_elevation": 76.0}, {"name": "waste_basket", "lat": 52.3925373, "lon": 16.98059, "trail_distance": 2.6322059746114213, "trail_elevation": 76.0}, {"name": "bench", "lat": 52.3918813, "lon": 16.9796621, "trail_distance": 2.6322059746114213, "trail_elevation": 76.0}, {"name": "bench", "lat": 52.3918419, "lon": 16.9796621, "trail_distance": 2.6322059746114213, "trail_elevation": 76.0}, {"name": "bench", "lat": 52.3917873, "lon": 16.9796626, "trail_distance": 2.6322059746114213, "trail_elevation": 76.0}, {"name": "bench", "lat": 52.3918215, "lon": 16.9794805, "trail_distance": 2.6322059746114213, "trail_elevation": 76.0}, {"name": "pitch", "lat": 52.39195244, "lon": 16.979346800000002, "trail_distance": 2.6322059746114213, "trail_elevation": 76.0}, {"name": "memorial Jezus Chrystus", "lat": 52.39221447999999, "lon": 16.979744619999998, "trail_distance": 2.6322059746114213, "trail_elevation": 76.0}, {"name": "pitch", "lat": 52.39182892, "lon": 16.9795659, "trail_distance": 2.6322059746114213, "trail_elevation": 76.0}];
+            const minLat = 52.389013;
+            const maxLat = 52.398503;
+            const minLon = 16.972374;
+            const maxLon = 16.982582;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const paddingTop = 100;
+            const paddingRight = 0;
+            const paddingBottom = 40;
+            const paddingLeft = 20;
+
+            const maxEle = Math.max(...elevations);
+            const minEle = Math.min(...elevations);
+            const eleRange = maxEle - minEle;
+            const maxDist = distances[distances.length - 1];
+
+            let lastRefreshTime;
+            let gpsStatusMessage = '';
+            let isAutoScrollOn = true;
+
+            const modal = document.getElementById("myModal");
+            const modalBody = document.getElementById("modal-body");
+            const span = document.getElementsByClassName("close")[0];
+
+            window.showModal = function(content) {
+                modalBody.innerHTML = content;
+                modal.style.display = "block";
+            }
+
+            span.onclick = function() {
+                modal.style.display = "none";
+            }
+
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            }
+
+            function getX(distance) {
+                return paddingLeft + (distance / maxDist) * (width - paddingLeft - paddingRight);
+            }
+
+            function getY(elevation) {
+                return height - paddingBottom - ((elevation - minEle) / eleRange) * (height - paddingTop - paddingBottom);
+            }
+
+            function drawProfile() {
+                ctx.clearRect(0, 0, width, height);
+                ctx.strokeStyle = 'black';
+                ctx.fillStyle = 'black';
+                // Draw profile
+                ctx.beginPath();
+                ctx.moveTo(getX(distances[0]), getY(elevations[0]));
+                for (let i = 1; i < elevations.length; i++) {
+                    ctx.lineTo(getX(distances[i]), getY(elevations[i]));
+                }
+                ctx.stroke();
+
+                // Draw axes
+                ctx.beginPath();
+                ctx.moveTo(paddingLeft, paddingTop);
+                ctx.lineTo(paddingLeft, height - paddingBottom);
+                ctx.lineTo(width - paddingRight, height - paddingBottom);
+                ctx.stroke();
+            }
+
+            drawProfile();
+
+            function haversine(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Radius of Earth in kilometers
+                const dLat = (lat2 - lat1) * Math.PI / 180;  // deg2rad below
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = 
+                    0.5 - Math.cos(dLat)/2 + 
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    (1 - Math.cos(dLon))/2;
+
+                return R * 2 * Math.asin(Math.sqrt(a));
+            }
+
+            function calculateBearing(startLat, startLng, destLat, destLng) {
+              // Convert degrees to radians
+              const toRadians = (degrees) => degrees * Math.PI / 180;
+              const toDegrees = (radians) => radians * 180 / Math.PI;
+
+              const startLatRad = toRadians(startLat);
+              const startLngRad = toRadians(startLng);
+              const destLatRad = toRadians(destLat);
+              const destLngRad = toRadians(destLng);
+
+              // Calculate the difference in longitude
+              const deltaLng = destLngRad - startLngRad;
+
+              // Calculate the bearing
+              const y = Math.sin(deltaLng) * Math.cos(destLatRad);
+              const x = Math.cos(startLatRad) * Math.sin(destLatRad) -
+                        Math.sin(startLatRad) * Math.cos(destLatRad) * Math.cos(deltaLng);
+              let bearing = Math.atan2(y, x);
+
+              // Convert the bearing from radians to degrees
+              bearing = toDegrees(bearing);
+
+              // Ensure the bearing is a positive number between 0 and 360
+              return (bearing + 360) % 360;
+            }
+
+            function getBearingArrow(bearing) {
+                if (bearing >= 337.5 || bearing < 22.5) {
+                    return '↑'; // North
+                } else if (bearing >= 22.5 && bearing < 67.5) {
+                    return '↗'; // North-East
+                } else if (bearing >= 67.5 && bearing < 112.5) {
+                    return '→'; // East
+                } else if (bearing >= 112.5 && bearing < 157.5) {
+                    return '↘'; // South-East
+                } else if (bearing >= 157.5 && bearing < 202.5) {
+                    return '↓'; // South
+                } else if (bearing >= 202.5 && bearing < 247.5) {
+                    return '↙'; // South-West
+                } else if (bearing >= 247.5 && bearing < 292.5) {
+                    return '←'; // West
+                } else if (bearing >= 292.5 && bearing < 337.5) {
+                    return '↖'; // North-West
+                }
+                return ''; // Should not happen
+            }
+
+            function sortTable() {
+                const tableBody = document.querySelector('#itineraryTable tbody');
+                const rows = Array.from(tableBody.children);
+
+                rows.sort((a, b) => {
+                    const distanceA = parseFloat(a.cells[0].textContent.trim());
+                    const distanceB = parseFloat(b.cells[0].textContent.trim());
+
+                    if (isNaN(distanceA) && isNaN(distanceB)) return 0; // Both NaN, keep original order
+                    if (isNaN(distanceA)) return 1; // A is NaN, B is a number, put A at the end
+                    if (isNaN(distanceB)) return -1; // B is NaN, A is a number, put B at the end
+
+                    return distanceA - distanceB;
+                });
+
+                while (tableBody.firstChild) {
+                    tableBody.removeChild(tableBody.firstChild);
+                }
+                rows.forEach(row => tableBody.appendChild(row));
+            }
+
+            function updateStaticTable() {
+                const maxEleIndex = elevations.indexOf(maxEle);
+                const maxEleDistance = distances[maxEleIndex];
+
+                document.getElementById('startDistance').innerText = distances[0].toFixed(1);
+                document.getElementById('startHeight').innerText = elevations[0].toFixed(0);
+
+                document.getElementById('highestPointDistance').innerText = maxEleDistance.toFixed(1);
+                document.getElementById('highestPointHeight').innerText = maxEle.toFixed(0);
+
+                document.getElementById('finishDistance').innerText = maxDist.toFixed(1);
+                document.getElementById('finishHeight').innerText = elevations[elevations.length - 1].toFixed(0);
+
+                document.getElementById('startLat').innerText = lats[0].toFixed(5);
+                document.getElementById('startLon').innerText = lons[0].toFixed(5);
+                document.getElementById('startLink').href = `geo:${lats[0]},${lons[0]}`;
+
+                document.getElementById('highestPointLat').innerText = lats[maxEleIndex].toFixed(5);
+                document.getElementById('highestPointLon').innerText = lons[maxEleIndex].toFixed(5);
+                document.getElementById('highestPointLink').href = `geo:${lats[maxEleIndex]},${lons[maxEleIndex]}`;
+
+                document.getElementById('finishLat').innerText = lats[lats.length - 1].toFixed(5);
+                document.getElementById('finishLon').innerText = lons[lons.length - 1].toFixed(5);
+                document.getElementById('finishLink').href = `geo:${lats[lats.length - 1]},${lons[lats.length - 1]}`;
+                sortTable();
+            }
+
+            function formatTimeAgo(date) {
+                const seconds = Math.floor((new Date() - date) / 1000);
+                let interval = seconds / 31536000;
+                if (interval > 1) {
+                    return Math.floor(interval) + " years ago";
+                }
+                interval = seconds / 2592000;
+                if (interval > 1) {
+                    return Math.floor(interval) + " months ago";
+                }
+                interval = seconds / 86400;
+                if (interval > 1) {
+                    return Math.floor(interval) + " days ago";
+                }
+                interval = seconds / 3600;
+                if (interval > 1) {
+                    return Math.floor(interval) + " hours ago";
+                }
+                interval = seconds / 60;
+                if (interval > 1) {
+                    return Math.floor(interval) + " minutes ago";
+                }
+                return Math.floor(seconds) + " seconds ago";
+            }
+
+            function refreshLocation() {
+                let dots = 0;
+                const interval = setInterval(() => {
+                    dots = (dots + 1) % 4;
+                    gpsStatusMessage = ".".repeat(dots);
+                }, 500);
+
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(position => {
+                        clearInterval(interval);
+                        lastRefreshTime = new Date();
+                        const userLat = position.coords.latitude;
+                        const userLon = position.coords.longitude;
+                        gpsStatusMessage = `Lat: ${userLat.toFixed(5)}, Lon: ${userLon.toFixed(5)}`;
+        
+                        console.log('User Location:', userLat, userLon);
+        
+                        let nearestIndex = 0;
+                        let minDistance = Infinity;
+                        for (let i = 0; i < lats.length; i++) {
+                            const dist = haversine(userLat, userLon, lats[i], lons[i]);
+                            if (dist < minDistance) {
+                                minDistance = dist;
+                                nearestIndex = i;
+                            }
+                        }
+                        console.log('Nearest Index:', nearestIndex, 'Min Distance:', minDistance);
+                        updateMapAndTable(nearestIndex, userLat, userLon);
+                    }, error => {
+                        clearInterval(interval);
+                        gpsStatusMessage = 'NOPE';
+                        console.error('Error getting user location:', error);
+                    });
+                } else {
+                    clearInterval(interval);
+                    gpsStatusMessage = 'NOPE';
+                    console.error('Geolocation is not supported by this browser.');
+                }
+            }
+
+            updateStaticTable();
+            refreshLocation();
+            setInterval(refreshLocation, 20000);
+
+            document.getElementById('autoScrollToggle').addEventListener('change', function() {
+                isAutoScrollOn = this.checked;
+            });
+
+            setInterval(() => {
+                if (lastRefreshTime) {
+                    document.getElementById('gpsStatus').innerText = `${gpsStatusMessage} (${formatTimeAgo(lastRefreshTime)})`
+                } else {
+                    document.getElementById('gpsStatus').innerText = gpsStatusMessage;
+                }
+            }, 1000);
+
+            function updateMapAndTable(nearestIndex, actualLat, actualLon) {
+                drawProfile();
+                document.getElementById('currentPositionRow').style.display = '';
+                console.log('Nearest Index:', nearestIndex);
+
+                // Draw current position line
+                const currentX = getX(distances[nearestIndex]);
+                ctx.beginPath();
+                ctx.strokeStyle = 'red';
+                ctx.moveTo(currentX, paddingTop);
+                ctx.lineTo(currentX, height - paddingBottom);
+                ctx.stroke();
+
+                // Draw info on top of the line
+                const currentDist = distances[nearestIndex];
+                const percentage = (currentDist / maxDist) * 100;
+                const ele = elevations[nearestIndex];
+                ctx.fillStyle = 'red';
+                ctx.font = '70px Arial'; // Set a much bigger font for current position info
+
+                let textX = currentX;
+                if (currentX < paddingLeft + 50) {
+                    ctx.textAlign = 'left';
+                    textX = paddingLeft;
+                } else if (currentX > width - paddingRight - 50) {
+                    ctx.textAlign = 'right';
+                    textX = width - paddingRight;
+                } else {
+                    ctx.textAlign = 'center';
+                }
+
+                
+                ctx.fillText(percentage.toFixed(0) + '%', textX, paddingTop - 5);
+
+                ctx.strokeStyle = 'black';
+                ctx.fillStyle = 'black';
+
+                const tableBody = document.querySelector('#itineraryTable tbody');
+
+                document.getElementById('currentDistance').innerText = currentDist.toFixed(1);
+                document.getElementById('currentHeight').innerText = ele.toFixed(0);
+                document.getElementById('currentLat').innerText = lats[nearestIndex].toFixed(5);
+                document.getElementById('currentLon').innerText = lons[nearestIndex].toFixed(5);
+                document.getElementById('currentLink').href = `geo:${actualLat},${actualLon}`;
+
+                const maxEleIndex = elevations.indexOf(maxEle);
+
+                const currentLat = actualLat;
+                const currentLon = actualLon;
+
+                const startBearing = calculateBearing(currentLat, currentLon, lats[0], lons[0]);
+                const highestPointBearing = calculateBearing(currentLat, currentLon, lats[maxEleIndex], lons[maxEleIndex]);
+                const finishBearing = calculateBearing(currentLat, currentLon, lats[lats.length - 1], lons[lats.length - 1]);
+
+                document.getElementById('startDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[0], lons[0]).toFixed(2) + ' km ' + getBearingArrow(startBearing);
+                document.getElementById('currentDistFromCurrent').innerText = '';
+                document.getElementById('highestPointDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[maxEleIndex], lons[maxEleIndex]).toFixed(2) + ' km ' + getBearingArrow(highestPointBearing);
+                document.getElementById('finishDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[lats.length - 1], lons[lats.length - 1]).toFixed(2) + ' km ' + getBearingArrow(finishBearing);
+
+                importantPointsData.forEach((point, index) => {
+                    const dist = haversine(currentLat, currentLon, point.lat, point.lon);
+                    const bearing = calculateBearing(currentLat, currentLon, point.lat, point.lon);
+                    document.getElementById(`importantPointDistFromCurrent_${index}`).innerText = dist.toFixed(2) + ' km ' + getBearingArrow(bearing);
+                });
+
+                sortTable();
+
+                // Scroll to current position
+                const tableContainer = document.getElementById('tableContainer');
+                const currentPositionRow = document.getElementById('currentDistance').closest('tr'); // Find the parent <tr>
+
+                if (tableContainer && currentPositionRow) {
+                    if (isAutoScrollOn) {
+                        currentPositionRow.scrollIntoView({ block: "center" });
+                    }
+                    currentPositionRow.classList.add('current-position-row');
+                }
+            }
+            // Calculate remaining height for tableContainer
+            const canvasHeight = document.getElementById('profileCanvas').offsetHeight;
+
+            const totalOccupiedHeight = canvasHeight;
+            const windowHeight = window.innerHeight;
+            const remainingHeight = windowHeight - totalOccupiedHeight - 25;
+
+            if (tableContainer) {
+                tableContainer.style.height = `${remainingHeight}px`;
+            }
+    });
+    </script>
+    <div id="tableContainer" style="height: 200px; overflow-y: scroll;">
+        <table border="1" width="100%" id="itineraryTable">
+            <thead>
+                <tr>
+                    <th>Distance (km)</th>
+                    <th>Height (m)</th>
+                    <th>Point</th>
+                    <th>Lat</th>
+                    <th>Lon</th>
+                    <th>From Current (km)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td id="startDistance"></td>
+                    <td id="startHeight"></td>
+                    <td><a id="startLink" href="">START</a></td>
+                    <td id="startLat"></td>
+                    <td id="startLon"></td>
+                    <td id="startDistFromCurrent"></td>
+                </tr>
+                <tr id="currentPositionRow" style="display: none;">
+                    <td id="currentDistance"></td>
+                    <td id="currentHeight"></td>
+                    <td><a id="currentLink" href="">Current Position</a></td>
+                    <td id="currentLat"></td>
+                    <td id="currentLon"></td>
+                    <td id="currentDistFromCurrent"></td>
+                </tr>
+                <tr>
+                    <td id="highestPointDistance"></td>
+                    <td id="highestPointHeight"></td>
+                    <td><a id="highestPointLink" href="">Highest Point</a></td>
+                    <td id="highestPointLat"></td>
+                    <td id="highestPointLon"></td>
+                    <td id="highestPointDistFromCurrent"></td>
+                </tr>
+                <tr>
+                    <td id="finishDistance"></td>
+                    <td id="finishHeight"></td>
+                    <td><a id="finishLink" href="">FINISH</a></td>
+                    <td id="finishLat"></td>
+                    <td id="finishLon"></td>
+                    <td id="finishDistFromCurrent"></td>
+                </tr>
+                
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3938217,16.9817687">recycling</a></td>
+                    <td>52.3938217</td>
+                    <td>16.9817687</td>
+                    <td id="importantPointDistFromCurrent_0"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3938448,16.9818273">waste_disposal</a></td>
+                    <td>52.3938448</td>
+                    <td>16.9818273</td>
+                    <td id="importantPointDistFromCurrent_1"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3934174,16.9804415">recycling</a></td>
+                    <td>52.3934174</td>
+                    <td>16.9804415</td>
+                    <td id="importantPointDistFromCurrent_2"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3930607,16.9808716">waste_basket</a></td>
+                    <td>52.3930607</td>
+                    <td>16.9808716</td>
+                    <td id="importantPointDistFromCurrent_3"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3940296,16.9797983">bench</a></td>
+                    <td>52.3940296</td>
+                    <td>16.9797983</td>
+                    <td id="importantPointDistFromCurrent_4"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3937697,16.9798368">bench</a></td>
+                    <td>52.3937697</td>
+                    <td>16.9798368</td>
+                    <td id="importantPointDistFromCurrent_5"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.393752,16.9797941">waste_basket</a></td>
+                    <td>52.393752</td>
+                    <td>16.9797941</td>
+                    <td id="importantPointDistFromCurrent_6"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3939197,16.9799641">bench</a></td>
+                    <td>52.3939197</td>
+                    <td>16.9799641</td>
+                    <td id="importantPointDistFromCurrent_7"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3941187,16.9800442">waste_basket</a></td>
+                    <td>52.3941187</td>
+                    <td>16.9800442</td>
+                    <td id="importantPointDistFromCurrent_8"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3940965,16.9800293">bench</a></td>
+                    <td>52.3940965</td>
+                    <td>16.9800293</td>
+                    <td id="importantPointDistFromCurrent_9"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3939017,16.9804157">waste_basket</a></td>
+                    <td>52.3939017</td>
+                    <td>16.9804157</td>
+                    <td id="importantPointDistFromCurrent_10"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3932708,16.9814928">bench</a></td>
+                    <td>52.3932708</td>
+                    <td>16.9814928</td>
+                    <td id="importantPointDistFromCurrent_11"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3932278,16.9805495">waste_basket</a></td>
+                    <td>52.3932278</td>
+                    <td>16.9805495</td>
+                    <td id="importantPointDistFromCurrent_12"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.393221,16.9814319">waste_basket</a></td>
+                    <td>52.393221</td>
+                    <td>16.9814319</td>
+                    <td id="importantPointDistFromCurrent_13"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.39309442,16.9808965">shelter</a></td>
+                    <td>52.39309442</td>
+                    <td>16.9808965</td>
+                    <td id="importantPointDistFromCurrent_14"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3934128,16.9818051">waste_disposal</a></td>
+                    <td>52.3934128</td>
+                    <td>16.9818051</td>
+                    <td id="importantPointDistFromCurrent_15"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.39319536000001,16.98051878">shelter</a></td>
+                    <td>52.39319536000001</td>
+                    <td>16.98051878</td>
+                    <td id="importantPointDistFromCurrent_16"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>78</td>
+                    <td><a href="geo:52.39338352,16.9804894">waste_disposal</a></td>
+                    <td>52.39338352</td>
+                    <td>16.9804894</td>
+                    <td id="importantPointDistFromCurrent_17"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3939182,16.9820455">vending_machine</a></td>
+                    <td>52.3939182</td>
+                    <td>16.9820455</td>
+                    <td id="importantPointDistFromCurrent_18"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>75</td>
+                    <td><a href="geo:52.3943005,16.9807177">recycling</a></td>
+                    <td>52.3943005</td>
+                    <td>16.9807177</td>
+                    <td id="importantPointDistFromCurrent_19"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>75</td>
+                    <td><a href="geo:52.3943271,16.9807915">waste_disposal</a></td>
+                    <td>52.3943271</td>
+                    <td>16.9807915</td>
+                    <td id="importantPointDistFromCurrent_20"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>75</td>
+                    <td><a href="geo:52.3944295,16.9807206">bench</a></td>
+                    <td>52.3944295</td>
+                    <td>16.9807206</td>
+                    <td id="importantPointDistFromCurrent_21"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.394861,16.9799719">fitness_station</a></td>
+                    <td>52.394861</td>
+                    <td>16.9799719</td>
+                    <td id="importantPointDistFromCurrent_22"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3949708,16.9798671">playground</a></td>
+                    <td>52.3949708</td>
+                    <td>16.9798671</td>
+                    <td id="importantPointDistFromCurrent_23"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3947996,16.9801233">bench</a></td>
+                    <td>52.3947996</td>
+                    <td>16.9801233</td>
+                    <td id="importantPointDistFromCurrent_24"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3946609,16.9801211">bench</a></td>
+                    <td>52.3946609</td>
+                    <td>16.9801211</td>
+                    <td id="importantPointDistFromCurrent_25"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3945633,16.980088">waste_basket</a></td>
+                    <td>52.3945633</td>
+                    <td>16.980088</td>
+                    <td id="importantPointDistFromCurrent_26"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3945325,16.9800905">bench</a></td>
+                    <td>52.3945325</td>
+                    <td>16.9800905</td>
+                    <td id="importantPointDistFromCurrent_27"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.394055,16.979682">waste_basket</a></td>
+                    <td>52.394055</td>
+                    <td>16.979682</td>
+                    <td id="importantPointDistFromCurrent_28"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3942681,16.9800477">waste_basket</a></td>
+                    <td>52.3942681</td>
+                    <td>16.9800477</td>
+                    <td id="importantPointDistFromCurrent_29"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3942021,16.980043">bench</a></td>
+                    <td>52.3942021</td>
+                    <td>16.980043</td>
+                    <td id="importantPointDistFromCurrent_30"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3942256,16.980043">bench</a></td>
+                    <td>52.3942256</td>
+                    <td>16.980043</td>
+                    <td id="importantPointDistFromCurrent_31"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3942698,16.9798863">bench</a></td>
+                    <td>52.3942698</td>
+                    <td>16.9798863</td>
+                    <td id="importantPointDistFromCurrent_32"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.394234,16.9798381">bench</a></td>
+                    <td>52.394234</td>
+                    <td>16.9798381</td>
+                    <td id="importantPointDistFromCurrent_33"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.394133,16.979702">bench</a></td>
+                    <td>52.394133</td>
+                    <td>16.979702</td>
+                    <td id="importantPointDistFromCurrent_34"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3941692,16.9795447">bench</a></td>
+                    <td>52.3941692</td>
+                    <td>16.9795447</td>
+                    <td id="importantPointDistFromCurrent_35"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3942843,16.9801877">bench</a></td>
+                    <td>52.3942843</td>
+                    <td>16.9801877</td>
+                    <td id="importantPointDistFromCurrent_36"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.394345,16.980213">bench</a></td>
+                    <td>52.394345</td>
+                    <td>16.980213</td>
+                    <td id="importantPointDistFromCurrent_37"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3940743,16.9795108">waste_basket</a></td>
+                    <td>52.3940743</td>
+                    <td>16.9795108</td>
+                    <td id="importantPointDistFromCurrent_38"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3948037,16.9788137">bench</a></td>
+                    <td>52.3948037</td>
+                    <td>16.9788137</td>
+                    <td id="importantPointDistFromCurrent_39"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3943669,16.9796086">bench</a></td>
+                    <td>52.3943669</td>
+                    <td>16.9796086</td>
+                    <td id="importantPointDistFromCurrent_40"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3945775,16.9796666">bench</a></td>
+                    <td>52.3945775</td>
+                    <td>16.9796666</td>
+                    <td id="importantPointDistFromCurrent_41"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3951308,16.9789007">recycling</a></td>
+                    <td>52.3951308</td>
+                    <td>16.9789007</td>
+                    <td id="importantPointDistFromCurrent_42"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>77</td>
+                    <td><a href="geo:52.39418324,16.97987258">playground</a></td>
+                    <td>52.39418324</td>
+                    <td>16.97987258</td>
+                    <td id="importantPointDistFromCurrent_43"></td>
+                </tr>
+                <tr>
+                    <td>0.2</td>
+                    <td>77</td>
+                    <td><a href="geo:52.39509048333333,16.98025803333333">pitch</a></td>
+                    <td>52.39509048333333</td>
+                    <td>16.98025803333333</td>
+                    <td id="importantPointDistFromCurrent_44"></td>
+                </tr>
+                <tr>
+                    <td>0.2</td>
+                    <td>77</td>
+                    <td><a href="geo:52.395181642857146,16.980106842857143">pitch</a></td>
+                    <td>52.395181642857146</td>
+                    <td>16.980106842857143</td>
+                    <td id="importantPointDistFromCurrent_45"></td>
+                </tr>
+                <tr>
+                    <td>0.2</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3950507,16.9808028">waste_basket</a></td>
+                    <td>52.3950507</td>
+                    <td>16.9808028</td>
+                    <td id="importantPointDistFromCurrent_46"></td>
+                </tr>
+                <tr>
+                    <td>0.2</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3950751,16.9815459">waste_basket</a></td>
+                    <td>52.3950751</td>
+                    <td>16.9815459</td>
+                    <td id="importantPointDistFromCurrent_47"></td>
+                </tr>
+                <tr>
+                    <td>0.2</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3950839,16.9810232">bench</a></td>
+                    <td>52.3950839</td>
+                    <td>16.9810232</td>
+                    <td id="importantPointDistFromCurrent_48"></td>
+                </tr>
+                <tr>
+                    <td>0.2</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3950581,16.9812497">bench</a></td>
+                    <td>52.3950581</td>
+                    <td>16.9812497</td>
+                    <td id="importantPointDistFromCurrent_49"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>80</td>
+                    <td><a href="geo:52.395662,16.9824511">waste_basket</a></td>
+                    <td>52.395662</td>
+                    <td>16.9824511</td>
+                    <td id="importantPointDistFromCurrent_50"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>80</td>
+                    <td><a href="geo:52.3956955,16.9824753">bench</a></td>
+                    <td>52.3956955</td>
+                    <td>16.9824753</td>
+                    <td id="importantPointDistFromCurrent_51"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>80</td>
+                    <td><a href="geo:52.3958234,16.983118">map</a></td>
+                    <td>52.3958234</td>
+                    <td>16.983118</td>
+                    <td id="importantPointDistFromCurrent_52"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>80</td>
+                    <td><a href="geo:52.396178,16.9830769">map</a></td>
+                    <td>52.396178</td>
+                    <td>16.9830769</td>
+                    <td id="importantPointDistFromCurrent_53"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>80</td>
+                    <td><a href="geo:52.3958029,16.9830842">waste_basket</a></td>
+                    <td>52.3958029</td>
+                    <td>16.9830842</td>
+                    <td id="importantPointDistFromCurrent_54"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>80</td>
+                    <td><a href="geo:52.3962779,16.9827061">waste_basket</a></td>
+                    <td>52.3962779</td>
+                    <td>16.9827061</td>
+                    <td id="importantPointDistFromCurrent_55"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>80</td>
+                    <td><a href="geo:52.39577962,16.983372199999998">shelter</a></td>
+                    <td>52.39577962</td>
+                    <td>16.983372199999998</td>
+                    <td id="importantPointDistFromCurrent_56"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>81</td>
+                    <td><a href="geo:52.396464820000006,16.98220458">shelter</a></td>
+                    <td>52.396464820000006</td>
+                    <td>16.98220458</td>
+                    <td id="importantPointDistFromCurrent_57"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>83</td>
+                    <td><a href="geo:52.3964876,16.9821383">waste_basket</a></td>
+                    <td>52.3964876</td>
+                    <td>16.9821383</td>
+                    <td id="importantPointDistFromCurrent_58"></td>
+                </tr>
+                <tr>
+                    <td>0.7</td>
+                    <td>79</td>
+                    <td><a href="geo:52.3976974,16.9784843">waste_basket</a></td>
+                    <td>52.3976974</td>
+                    <td>16.9784843</td>
+                    <td id="importantPointDistFromCurrent_59"></td>
+                </tr>
+                <tr>
+                    <td>0.7</td>
+                    <td>79</td>
+                    <td><a href="#" onclick='window.showModal("<p>Wst\u0119p Kopiec Wolno\u015bci \u2013 kopiec znajduj\u0105cy si\u0119 w Poznaniu, na prawym brzegu Warty w dzielnicy Malta, na osiedlu administracyjnym Chartowo[1]; pierwotnie usypany dla uczczenia zwyci\u0119skiego powstania wielkopolskiego i przy\u0142\u0105czenia regionu do niepodleg\u0142ej Polski. Odbudowany[2] ma symbolizowa\u0107 szeroko rozumian\u0105 wolno\u015b\u0107 jako najwi\u0119ksz\u0105 warto\u015b\u0107 cz\u0142owieka. Zamiar budowy kopca powsta\u0142 ju\u017c w 1917, kiedy to planowano w tajemnicy przed zaborc\u0105 budow\u0119 wielkiego Parku Ludowego na obecnych terenach malta\u0144skich, kt\u00f3re by\u0142y najpopularniejszym miejscem rekreacji Polak\u00f3w pozna\u0144skich \u2013 mo\u017cna tu by\u0142o swobodnie rozmawia\u0107 po polsku, \u0107wiczy\u0107, a ponadto mieszka\u0142o tu niewielu Niemc\u00f3w. Planowano boiska, \u0142azienki i domy gimnastyczne[3]. Uroczysta inauguracja budowy Kopca Zmartwychwstania (bo tak pocz\u0105tkowo by\u0142 nazywany) przypada\u0142a w dniu \u015bwi\u0119ta narodowego \u2013 3 maja 1919 roku. Przez miasto przeszed\u0142 poch\u00f3d, w kt\u00f3rym uczestniczyli mi\u0119dzy innymi: prezydent, prymas Polski oraz ministrowie, a przem\u00f3wienie wyg\u0142osi\u0142 jeden z inicjator\u00f3w budowy \u2013 ksi\u0105dz kanonik \u0141ukomski[4]. W pracach budowlanych, opr\u00f3cz mieszka\u0144c\u00f3w Poznania i Wielkopolski, udzia\u0142 brali tak\u017ce \u2013 przybywaj\u0105cy indywidualnie \u2013 go\u015bcie z innych teren\u00f3w Polski. Ostateczna bry\u0142a kopca uformowa\u0142a si\u0119 w 1922 roku. Pomnik osi\u0105gn\u0105\u0142 wysoko\u015b\u0107 94 metr\u00f3w n.p.m., co pozwoli\u0142o mu wznie\u015b\u0107 sw\u00f3j szczyt 17 metr\u00f3w nad poziom szosy Kobylepolskiej (obecnie ul. abpa. Baraniaka). Zosta\u0142 rozebrany w czasie okupacji hitlerowskiej, poprzez niewolnicz\u0105 prac\u0119; cz\u0119sto tych samych ludzi, kt\u00f3rzy go usypywali. Usytuowanie kopca odbiega\u0142o nieco od dzisiejszego, kt\u00f3ry jest cz\u0119\u015bciow\u0105 replik\u0105 poprzedniego. Tor saneczkowy Malta Ski na tle kopca W 1979 roku podj\u0119to decyzj\u0119 o remoncie niecki wybudowanego w latach 50. Jeziora Malta\u0144skiego, w celu przygotowania go do odbycia Mistrzostw \u015awiata w Kajakarstwie, kt\u00f3rych gospodarzem mia\u0142 by\u0107 Pozna\u0144 w sierpniu 1990 roku. W okresie Polski Ludowej ze wzgl\u0119d\u00f3w politycznych nie by\u0142o plan\u00f3w odbudowy przedwojennego Kopca Wolno\u015bci. Jednak, aby pog\u0142\u0119bi\u0107 jezioro i przywr\u00f3ci\u0107 jego parametry jako toru regatowego, nale\u017ca\u0142o wydoby\u0107 z jego dna, a nast\u0119pnie wywie\u017a\u0107 ogromne ilo\u015bci ziemi. Koszty jej transportu by\u0142yby zbyt wysokie, dlatego w pobli\u017cu zbiornika postanowiono usypa\u0107 wzniesienie, kt\u00f3rego projektodawc\u0105 by\u0142 Klemens Miku\u0142a[5]. \u017beby nikt nie zosta\u0142 pos\u0105dzony przez komunistyczn\u0105 w\u0142adz\u0119 o ukryte zamiary odbudowy wolno\u015bciowego pomnika, oficjalnym powodem usypania wzg\u00f3rza by\u0142o zagospodarowanie na Malcie kompleksu sportowo-rekreacyjnego (m.in. z ca\u0142orocznym stokiem narciarskim, torem saneczkowym oraz polem do nauki gry w golfa). Kopiec ma wysoko\u015b\u0107 100[6] metr\u00f3w n.p.m., nadal jednak pozostaje w swojej niedoko\u0144czonej formie z powodu problem\u00f3w terenowo-prawnych. 17 maja 1984 decyzj\u0105 prezydenta Poznania Andrzeja Wituskiego[3] utworzono Spo\u0142eczny Komitet Odbudowy Kopca Wolno\u015bci, kt\u00f3rego prezesem zosta\u0142 prof. Jerzy Bogucki. Oficjalne zlecenie na realizacj\u0119 kopca z\u0142o\u017cono 27 czerwca 1985. W sierpniu 1986 zlecono prace budowlane Zak\u0142adowi Zadrzewie\u0144 Zieleni i Rekultywacji LOP. Teren budowy przygotowano do ko\u0144ca 1987[7]. W 2004 roku powsta\u0142o stowarzyszenie Kopiec Wolno\u015bci w Poznaniu, kt\u00f3rego zamiarem jest sfinalizowanie budowy Kopca Wolno\u015bci. Odtworzony kopiec ma by\u0107 wy\u017cszy od swego poprzednika i wznosi\u0107 si\u0119 na oko\u0142o 30 metr\u00f3w ponad powierzchni\u0119 ulicy, a na jego szczycie planowana jest platforma widokowa z \u0142aweczkami i rze\u017ab\u0105 ptaka wzbijaj\u0105cego si\u0119 do lotu; na skraju za\u015b murek z ukrytymi lampami[6]. Kopiec Wolno\u015bci oficjalnie otworzy\u0142 w setn\u0105 rocznic\u0119 odzyskania niepodleg\u0142o\u015bci wiceprezydent Poznania Mariusz Wi\u015bniewski[8]. </p>")'>&#x1F4D6;</a> <a href="geo:52.3984367,16.9785241">peak Kopiec Wolności</a></td>
+                    <td>52.3984367</td>
+                    <td>16.9785241</td>
+                    <td id="importantPointDistFromCurrent_60"></td>
+                </tr>
+                <tr>
+                    <td>0.7</td>
+                    <td>79</td>
+                    <td><a href="geo:52.3984212,16.9786543">bench</a></td>
+                    <td>52.3984212</td>
+                    <td>16.9786543</td>
+                    <td id="importantPointDistFromCurrent_61"></td>
+                </tr>
+                <tr>
+                    <td>0.9</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3987702,16.975858">bench</a></td>
+                    <td>52.3987702</td>
+                    <td>16.975858</td>
+                    <td id="importantPointDistFromCurrent_62"></td>
+                </tr>
+                <tr>
+                    <td>0.9</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3987857,16.9757973">bench</a></td>
+                    <td>52.3987857</td>
+                    <td>16.9757973</td>
+                    <td id="importantPointDistFromCurrent_63"></td>
+                </tr>
+                <tr>
+                    <td>0.9</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3987821,16.9756155">waste_basket</a></td>
+                    <td>52.3987821</td>
+                    <td>16.9756155</td>
+                    <td id="importantPointDistFromCurrent_64"></td>
+                </tr>
+                <tr>
+                    <td>0.9</td>
+                    <td>72</td>
+                    <td><a href="geo:52.398254442857144,16.975519771428573">shelter</a></td>
+                    <td>52.398254442857144</td>
+                    <td>16.975519771428573</td>
+                    <td id="importantPointDistFromCurrent_65"></td>
+                </tr>
+                <tr>
+                    <td>1.0</td>
+                    <td>68</td>
+                    <td><a href="geo:52.3986603,16.9748924">waste_basket</a></td>
+                    <td>52.3986603</td>
+                    <td>16.9748924</td>
+                    <td id="importantPointDistFromCurrent_66"></td>
+                </tr>
+                <tr>
+                    <td>1.0</td>
+                    <td>68</td>
+                    <td><a href="geo:52.3988522,16.9752279">waste_basket</a></td>
+                    <td>52.3988522</td>
+                    <td>16.9752279</td>
+                    <td id="importantPointDistFromCurrent_67"></td>
+                </tr>
+                <tr>
+                    <td>1.0</td>
+                    <td>68</td>
+                    <td><a href="geo:52.398872,16.9752727">bench</a></td>
+                    <td>52.398872</td>
+                    <td>16.9752727</td>
+                    <td id="importantPointDistFromCurrent_68"></td>
+                </tr>
+                <tr>
+                    <td>1.0</td>
+                    <td>68</td>
+                    <td><a href="geo:52.398944,16.975475">bench</a></td>
+                    <td>52.398944</td>
+                    <td>16.975475</td>
+                    <td id="importantPointDistFromCurrent_69"></td>
+                </tr>
+                <tr>
+                    <td>1.0</td>
+                    <td>68</td>
+                    <td><a href="geo:52.3985725,16.9752725">waste_basket</a></td>
+                    <td>52.3985725</td>
+                    <td>16.9752725</td>
+                    <td id="importantPointDistFromCurrent_70"></td>
+                </tr>
+                <tr>
+                    <td>1.0</td>
+                    <td>68</td>
+                    <td><a href="geo:52.3985165,16.9744327">waste_basket</a></td>
+                    <td>52.3985165</td>
+                    <td>16.9744327</td>
+                    <td id="importantPointDistFromCurrent_71"></td>
+                </tr>
+                <tr>
+                    <td>1.2</td>
+                    <td>71</td>
+                    <td><a href="geo:52.3961724,16.9743018">recycling</a></td>
+                    <td>52.3961724</td>
+                    <td>16.9743018</td>
+                    <td id="importantPointDistFromCurrent_72"></td>
+                </tr>
+                <tr>
+                    <td>1.2</td>
+                    <td>71</td>
+                    <td><a href="geo:52.396219,16.974311911111112">waste_disposal</a></td>
+                    <td>52.396219</td>
+                    <td>16.974311911111112</td>
+                    <td id="importantPointDistFromCurrent_73"></td>
+                </tr>
+                <tr>
+                    <td>1.3</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3957648,16.9747942">waste_basket</a></td>
+                    <td>52.3957648</td>
+                    <td>16.9747942</td>
+                    <td id="importantPointDistFromCurrent_74"></td>
+                </tr>
+                <tr>
+                    <td>1.3</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3957193,16.9747891">bench</a></td>
+                    <td>52.3957193</td>
+                    <td>16.9747891</td>
+                    <td id="importantPointDistFromCurrent_75"></td>
+                </tr>
+                <tr>
+                    <td>1.3</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3957703,16.9747587">bench</a></td>
+                    <td>52.3957703</td>
+                    <td>16.9747587</td>
+                    <td id="importantPointDistFromCurrent_76"></td>
+                </tr>
+                <tr>
+                    <td>1.3</td>
+                    <td>73</td>
+                    <td><a href="geo:52.39579,16.9741853">bench</a></td>
+                    <td>52.39579</td>
+                    <td>16.9741853</td>
+                    <td id="importantPointDistFromCurrent_77"></td>
+                </tr>
+                <tr>
+                    <td>1.3</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3958097,16.9732684">waste_basket</a></td>
+                    <td>52.3958097</td>
+                    <td>16.9732684</td>
+                    <td id="importantPointDistFromCurrent_78"></td>
+                </tr>
+                <tr>
+                    <td>1.3</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3955306,16.9746742">waste_basket</a></td>
+                    <td>52.3955306</td>
+                    <td>16.9746742</td>
+                    <td id="importantPointDistFromCurrent_79"></td>
+                </tr>
+                <tr>
+                    <td>1.3</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3953391,16.974491">bench</a></td>
+                    <td>52.3953391</td>
+                    <td>16.974491</td>
+                    <td id="importantPointDistFromCurrent_80"></td>
+                </tr>
+                <tr>
+                    <td>1.3</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3954276,16.9739542">bench</a></td>
+                    <td>52.3954276</td>
+                    <td>16.9739542</td>
+                    <td id="importantPointDistFromCurrent_81"></td>
+                </tr>
+                <tr>
+                    <td>1.3</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3955982,16.9740632">bench</a></td>
+                    <td>52.3955982</td>
+                    <td>16.9740632</td>
+                    <td id="importantPointDistFromCurrent_82"></td>
+                </tr>
+                <tr>
+                    <td>1.4</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3951104,16.9745209">bench</a></td>
+                    <td>52.3951104</td>
+                    <td>16.9745209</td>
+                    <td id="importantPointDistFromCurrent_83"></td>
+                </tr>
+                <tr>
+                    <td>1.4</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3948636,16.9743132">bench</a></td>
+                    <td>52.3948636</td>
+                    <td>16.9743132</td>
+                    <td id="importantPointDistFromCurrent_84"></td>
+                </tr>
+                <tr>
+                    <td>1.4</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3946421,16.9737269">bench</a></td>
+                    <td>52.3946421</td>
+                    <td>16.9737269</td>
+                    <td id="importantPointDistFromCurrent_85"></td>
+                </tr>
+                <tr>
+                    <td>1.4</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3949404,16.9737358">bench</a></td>
+                    <td>52.3949404</td>
+                    <td>16.9737358</td>
+                    <td id="importantPointDistFromCurrent_86"></td>
+                </tr>
+                <tr>
+                    <td>1.4</td>
+                    <td>72</td>
+                    <td><a href="geo:52.394973,16.9737406">waste_basket</a></td>
+                    <td>52.394973</td>
+                    <td>16.9737406</td>
+                    <td id="importantPointDistFromCurrent_87"></td>
+                </tr>
+                <tr>
+                    <td>1.4</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3950163,16.9737507">bench</a></td>
+                    <td>52.3950163</td>
+                    <td>16.9737507</td>
+                    <td id="importantPointDistFromCurrent_88"></td>
+                </tr>
+                <tr>
+                    <td>1.4</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3951558,16.9738029">bench</a></td>
+                    <td>52.3951558</td>
+                    <td>16.9738029</td>
+                    <td id="importantPointDistFromCurrent_89"></td>
+                </tr>
+                <tr>
+                    <td>1.4</td>
+                    <td>72</td>
+                    <td><a href="geo:52.39517674,16.9731032">scree</a></td>
+                    <td>52.39517674</td>
+                    <td>16.9731032</td>
+                    <td id="importantPointDistFromCurrent_90"></td>
+                </tr>
+                <tr>
+                    <td>1.4</td>
+                    <td>72</td>
+                    <td><a href="geo:52.39512022,16.97307284">scree</a></td>
+                    <td>52.39512022</td>
+                    <td>16.97307284</td>
+                    <td id="importantPointDistFromCurrent_91"></td>
+                </tr>
+                <tr>
+                    <td>1.5</td>
+                    <td>75</td>
+                    <td><a href="geo:52.393797,16.9737501">bench</a></td>
+                    <td>52.393797</td>
+                    <td>16.9737501</td>
+                    <td id="importantPointDistFromCurrent_92"></td>
+                </tr>
+                <tr>
+                    <td>1.5</td>
+                    <td>75</td>
+                    <td><a href="geo:52.3940627,16.9737424">bench</a></td>
+                    <td>52.3940627</td>
+                    <td>16.9737424</td>
+                    <td id="importantPointDistFromCurrent_93"></td>
+                </tr>
+                <tr>
+                    <td>1.5</td>
+                    <td>75</td>
+                    <td><a href="geo:52.3941147,16.9737425">bench</a></td>
+                    <td>52.3941147</td>
+                    <td>16.9737425</td>
+                    <td id="importantPointDistFromCurrent_94"></td>
+                </tr>
+                <tr>
+                    <td>1.5</td>
+                    <td>75</td>
+                    <td><a href="geo:52.3942205,16.9737395">bench</a></td>
+                    <td>52.3942205</td>
+                    <td>16.9737395</td>
+                    <td id="importantPointDistFromCurrent_95"></td>
+                </tr>
+                <tr>
+                    <td>1.5</td>
+                    <td>75</td>
+                    <td><a href="geo:52.3937704,16.9723169">waste_basket</a></td>
+                    <td>52.3937704</td>
+                    <td>16.9723169</td>
+                    <td id="importantPointDistFromCurrent_96"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3933525,16.9718732">waste_basket</a></td>
+                    <td>52.3933525</td>
+                    <td>16.9718732</td>
+                    <td id="importantPointDistFromCurrent_97"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3924551,16.9720362">bench</a></td>
+                    <td>52.3924551</td>
+                    <td>16.9720362</td>
+                    <td id="importantPointDistFromCurrent_98"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3924682,16.9719592">bench</a></td>
+                    <td>52.3924682</td>
+                    <td>16.9719592</td>
+                    <td id="importantPointDistFromCurrent_99"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3924857,16.9718465">bench</a></td>
+                    <td>52.3924857</td>
+                    <td>16.9718465</td>
+                    <td id="importantPointDistFromCurrent_100"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3924585,16.9720115">waste_basket</a></td>
+                    <td>52.3924585</td>
+                    <td>16.9720115</td>
+                    <td id="importantPointDistFromCurrent_101"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3925005,16.971795">waste_basket</a></td>
+                    <td>52.3925005</td>
+                    <td>16.971795</td>
+                    <td id="importantPointDistFromCurrent_102"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3924166,16.9720264">waste_basket</a></td>
+                    <td>52.3924166</td>
+                    <td>16.9720264</td>
+                    <td id="importantPointDistFromCurrent_103"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3925585,16.9723256">waste_basket</a></td>
+                    <td>52.3925585</td>
+                    <td>16.9723256</td>
+                    <td id="importantPointDistFromCurrent_104"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>73</td>
+                    <td><a href="geo:52.392411519999996,16.972086400000002">shelter</a></td>
+                    <td>52.392411519999996</td>
+                    <td>16.972086400000002</td>
+                    <td id="importantPointDistFromCurrent_105"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3924695,16.9722908">bench</a></td>
+                    <td>52.3924695</td>
+                    <td>16.9722908</td>
+                    <td id="importantPointDistFromCurrent_106"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3923927,16.9721548">waste_basket</a></td>
+                    <td>52.3923927</td>
+                    <td>16.9721548</td>
+                    <td id="importantPointDistFromCurrent_107"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3924256,16.9722548">waste_basket</a></td>
+                    <td>52.3924256</td>
+                    <td>16.9722548</td>
+                    <td id="importantPointDistFromCurrent_108"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>74</td>
+                    <td><a href="geo:52.39265925,16.97249805">bridge</a></td>
+                    <td>52.39265925</td>
+                    <td>16.97249805</td>
+                    <td id="importantPointDistFromCurrent_109"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3923347,16.9726812">waste_basket</a></td>
+                    <td>52.3923347</td>
+                    <td>16.9726812</td>
+                    <td id="importantPointDistFromCurrent_110"></td>
+                </tr>
+                <tr>
+                    <td>1.6</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3923341,16.9726462">bench</a></td>
+                    <td>52.3923341</td>
+                    <td>16.9726462</td>
+                    <td id="importantPointDistFromCurrent_111"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3923578,16.9732086">waste_basket</a></td>
+                    <td>52.3923578</td>
+                    <td>16.9732086</td>
+                    <td id="importantPointDistFromCurrent_112"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>76</td>
+                    <td><a href="geo:52.392369,16.9730164">waste_basket</a></td>
+                    <td>52.392369</td>
+                    <td>16.9730164</td>
+                    <td id="importantPointDistFromCurrent_113"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3922823,16.9729224">waste_basket</a></td>
+                    <td>52.3922823</td>
+                    <td>16.9729224</td>
+                    <td id="importantPointDistFromCurrent_114"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3923686,16.9732613">bench</a></td>
+                    <td>52.3923686</td>
+                    <td>16.9732613</td>
+                    <td id="importantPointDistFromCurrent_115"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3923742,16.9730678">bench</a></td>
+                    <td>52.3923742</td>
+                    <td>16.9730678</td>
+                    <td id="importantPointDistFromCurrent_116"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3922867,16.9728747">bench</a></td>
+                    <td>52.3922867</td>
+                    <td>16.9728747</td>
+                    <td id="importantPointDistFromCurrent_117"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3934164,16.9737563">waste_basket</a></td>
+                    <td>52.3934164</td>
+                    <td>16.9737563</td>
+                    <td id="importantPointDistFromCurrent_118"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3933639,16.9737586">bench</a></td>
+                    <td>52.3933639</td>
+                    <td>16.9737586</td>
+                    <td id="importantPointDistFromCurrent_119"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>75</td>
+                    <td><a href="geo:52.3927697,16.9739154">recycling</a></td>
+                    <td>52.3927697</td>
+                    <td>16.9739154</td>
+                    <td id="importantPointDistFromCurrent_120"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>75</td>
+                    <td><a href="geo:52.3923921,16.9734396">waste_basket</a></td>
+                    <td>52.3923921</td>
+                    <td>16.9734396</td>
+                    <td id="importantPointDistFromCurrent_121"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>75</td>
+                    <td><a href="geo:52.3924002,16.9734803">bench</a></td>
+                    <td>52.3924002</td>
+                    <td>16.9734803</td>
+                    <td id="importantPointDistFromCurrent_122"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>75</td>
+                    <td><a href="geo:52.3922741,16.9736068">bench</a></td>
+                    <td>52.3922741</td>
+                    <td>16.9736068</td>
+                    <td id="importantPointDistFromCurrent_123"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>75</td>
+                    <td><a href="geo:52.3922806,16.9735593">waste_basket</a></td>
+                    <td>52.3922806</td>
+                    <td>16.9735593</td>
+                    <td id="importantPointDistFromCurrent_124"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>75</td>
+                    <td><a href="geo:52.392485,16.9736422">bridge</a></td>
+                    <td>52.392485</td>
+                    <td>16.9736422</td>
+                    <td id="importantPointDistFromCurrent_125"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>75</td>
+                    <td><a href="geo:52.39282763999999,16.973761739999997">waste_disposal</a></td>
+                    <td>52.39282763999999</td>
+                    <td>16.973761739999997</td>
+                    <td id="importantPointDistFromCurrent_126"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3922661,16.973847">bench</a></td>
+                    <td>52.3922661</td>
+                    <td>16.973847</td>
+                    <td id="importantPointDistFromCurrent_127"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>74</td>
+                    <td><a href="geo:52.392323,16.9740052">bench</a></td>
+                    <td>52.392323</td>
+                    <td>16.9740052</td>
+                    <td id="importantPointDistFromCurrent_128"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3922739,16.9738067">waste_basket</a></td>
+                    <td>52.3922739</td>
+                    <td>16.9738067</td>
+                    <td id="importantPointDistFromCurrent_129"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3923361,16.9739663">waste_basket</a></td>
+                    <td>52.3923361</td>
+                    <td>16.9739663</td>
+                    <td id="importantPointDistFromCurrent_130"></td>
+                </tr>
+                <tr>
+                    <td>1.7</td>
+                    <td>74</td>
+                    <td><a href="geo:52.39359316,16.97442652">playground</a></td>
+                    <td>52.39359316</td>
+                    <td>16.97442652</td>
+                    <td id="importantPointDistFromCurrent_131"></td>
+                </tr>
+                <tr>
+                    <td>1.8</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3926704,16.9751162">recycling</a></td>
+                    <td>52.3926704</td>
+                    <td>16.9751162</td>
+                    <td id="importantPointDistFromCurrent_132"></td>
+                </tr>
+                <tr>
+                    <td>1.8</td>
+                    <td>73</td>
+                    <td><a href="geo:52.39269286,16.97510558">waste_disposal</a></td>
+                    <td>52.39269286</td>
+                    <td>16.97510558</td>
+                    <td id="importantPointDistFromCurrent_133"></td>
+                </tr>
+                <tr>
+                    <td>1.8</td>
+                    <td>71</td>
+                    <td><a href="geo:52.3920996,16.9752674">bench</a></td>
+                    <td>52.3920996</td>
+                    <td>16.9752674</td>
+                    <td id="importantPointDistFromCurrent_134"></td>
+                </tr>
+                <tr>
+                    <td>1.8</td>
+                    <td>71</td>
+                    <td><a href="geo:52.3921221,16.9750541">bench</a></td>
+                    <td>52.3921221</td>
+                    <td>16.9750541</td>
+                    <td id="importantPointDistFromCurrent_135"></td>
+                </tr>
+                <tr>
+                    <td>1.8</td>
+                    <td>71</td>
+                    <td><a href="geo:52.3921417,16.9745471">bench</a></td>
+                    <td>52.3921417</td>
+                    <td>16.9745471</td>
+                    <td id="importantPointDistFromCurrent_136"></td>
+                </tr>
+                <tr>
+                    <td>1.8</td>
+                    <td>71</td>
+                    <td><a href="geo:52.3921565,16.9745028">waste_basket</a></td>
+                    <td>52.3921565</td>
+                    <td>16.9745028</td>
+                    <td id="importantPointDistFromCurrent_137"></td>
+                </tr>
+                <tr>
+                    <td>1.8</td>
+                    <td>71</td>
+                    <td><a href="geo:52.3920488,16.9746926">waste_basket</a></td>
+                    <td>52.3920488</td>
+                    <td>16.9746926</td>
+                    <td id="importantPointDistFromCurrent_138"></td>
+                </tr>
+                <tr>
+                    <td>1.8</td>
+                    <td>71</td>
+                    <td><a href="geo:52.3920918,16.9750588">waste_basket</a></td>
+                    <td>52.3920918</td>
+                    <td>16.9750588</td>
+                    <td id="importantPointDistFromCurrent_139"></td>
+                </tr>
+                <tr>
+                    <td>1.8</td>
+                    <td>71</td>
+                    <td><a href="geo:52.3920742,16.9752499">waste_basket</a></td>
+                    <td>52.3920742</td>
+                    <td>16.9752499</td>
+                    <td id="importantPointDistFromCurrent_140"></td>
+                </tr>
+                <tr>
+                    <td>1.8</td>
+                    <td>71</td>
+                    <td><a href="geo:52.3922653,16.9753498">waste_basket</a></td>
+                    <td>52.3922653</td>
+                    <td>16.9753498</td>
+                    <td id="importantPointDistFromCurrent_141"></td>
+                </tr>
+                <tr>
+                    <td>1.8</td>
+                    <td>71</td>
+                    <td><a href="geo:52.3922413,16.9753264">waste_basket</a></td>
+                    <td>52.3922413</td>
+                    <td>16.9753264</td>
+                    <td id="importantPointDistFromCurrent_142"></td>
+                </tr>
+                <tr>
+                    <td>1.8</td>
+                    <td>71</td>
+                    <td><a href="geo:52.392261774999994,16.97472023653846">nature_reserve Traszki Ratajskie</a></td>
+                    <td>52.392261774999994</td>
+                    <td>16.97472023653846</td>
+                    <td id="importantPointDistFromCurrent_143"></td>
+                </tr>
+                <tr>
+                    <td>1.9</td>
+                    <td>71</td>
+                    <td><a href="geo:52.3911004,16.974801">dog_park</a></td>
+                    <td>52.3911004</td>
+                    <td>16.974801</td>
+                    <td id="importantPointDistFromCurrent_144"></td>
+                </tr>
+                <tr>
+                    <td>1.9</td>
+                    <td>71</td>
+                    <td><a href="geo:52.3918769,16.9756496">bench</a></td>
+                    <td>52.3918769</td>
+                    <td>16.9756496</td>
+                    <td id="importantPointDistFromCurrent_145"></td>
+                </tr>
+                <tr>
+                    <td>1.9</td>
+                    <td>71</td>
+                    <td><a href="geo:52.3918524,16.9756362">waste_basket</a></td>
+                    <td>52.3918524</td>
+                    <td>16.9756362</td>
+                    <td id="importantPointDistFromCurrent_146"></td>
+                </tr>
+                <tr>
+                    <td>1.9</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3917632,16.9757509">bench</a></td>
+                    <td>52.3917632</td>
+                    <td>16.9757509</td>
+                    <td id="importantPointDistFromCurrent_147"></td>
+                </tr>
+                <tr>
+                    <td>1.9</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3917505,16.9757898">waste_basket</a></td>
+                    <td>52.3917505</td>
+                    <td>16.9757898</td>
+                    <td id="importantPointDistFromCurrent_148"></td>
+                </tr>
+                <tr>
+                    <td>1.9</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3917288,16.9759407">bench</a></td>
+                    <td>52.3917288</td>
+                    <td>16.9759407</td>
+                    <td id="importantPointDistFromCurrent_149"></td>
+                </tr>
+                <tr>
+                    <td>1.9</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3917124,16.9759789">waste_basket</a></td>
+                    <td>52.3917124</td>
+                    <td>16.9759789</td>
+                    <td id="importantPointDistFromCurrent_150"></td>
+                </tr>
+                <tr>
+                    <td>1.9</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3912646,16.9756156">waste_basket</a></td>
+                    <td>52.3912646</td>
+                    <td>16.9756156</td>
+                    <td id="importantPointDistFromCurrent_151"></td>
+                </tr>
+                <tr>
+                    <td>1.9</td>
+                    <td>72</td>
+                    <td><a href="geo:52.391665207978726,16.976013972340425">park Park na os. Tysiąclecia</a></td>
+                    <td>52.391665207978726</td>
+                    <td>16.976013972340425</td>
+                    <td id="importantPointDistFromCurrent_152"></td>
+                </tr>
+                <tr>
+                    <td>1.9</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3916523,16.9762981">waste_basket</a></td>
+                    <td>52.3916523</td>
+                    <td>16.9762981</td>
+                    <td id="importantPointDistFromCurrent_153"></td>
+                </tr>
+                <tr>
+                    <td>1.9</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3916821,16.9763021">bench</a></td>
+                    <td>52.3916821</td>
+                    <td>16.9763021</td>
+                    <td id="importantPointDistFromCurrent_154"></td>
+                </tr>
+                <tr>
+                    <td>1.9</td>
+                    <td>72</td>
+                    <td><a href="geo:52.391235640000005,16.97568386">shelter</a></td>
+                    <td>52.391235640000005</td>
+                    <td>16.97568386</td>
+                    <td id="importantPointDistFromCurrent_155"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3913349,16.9763306">waste_basket</a></td>
+                    <td>52.3913349</td>
+                    <td>16.9763306</td>
+                    <td id="importantPointDistFromCurrent_156"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3913637,16.9763316">bench</a></td>
+                    <td>52.3913637</td>
+                    <td>16.9763316</td>
+                    <td id="importantPointDistFromCurrent_157"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3919511,16.9776567">waste_basket</a></td>
+                    <td>52.3919511</td>
+                    <td>16.9776567</td>
+                    <td id="importantPointDistFromCurrent_158"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3919396,16.9776387">bench</a></td>
+                    <td>52.3919396</td>
+                    <td>16.9776387</td>
+                    <td id="importantPointDistFromCurrent_159"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3912631,16.9764349">waste_basket</a></td>
+                    <td>52.3912631</td>
+                    <td>16.9764349</td>
+                    <td id="importantPointDistFromCurrent_160"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3914495,16.9769278">waste_basket</a></td>
+                    <td>52.3914495</td>
+                    <td>16.9769278</td>
+                    <td id="importantPointDistFromCurrent_161"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3915414,16.977014">waste_basket</a></td>
+                    <td>52.3915414</td>
+                    <td>16.977014</td>
+                    <td id="importantPointDistFromCurrent_162"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3915328,16.9769956">bench</a></td>
+                    <td>52.3915328</td>
+                    <td>16.9769956</td>
+                    <td id="importantPointDistFromCurrent_163"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3914701,16.976964">bench</a></td>
+                    <td>52.3914701</td>
+                    <td>16.976964</td>
+                    <td id="importantPointDistFromCurrent_164"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3912749,16.9764738">bench</a></td>
+                    <td>52.3912749</td>
+                    <td>16.9764738</td>
+                    <td id="importantPointDistFromCurrent_165"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3910337,16.9759694">waste_basket</a></td>
+                    <td>52.3910337</td>
+                    <td>16.9759694</td>
+                    <td id="importantPointDistFromCurrent_166"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3915729,16.9781594">bench</a></td>
+                    <td>52.3915729</td>
+                    <td>16.9781594</td>
+                    <td id="importantPointDistFromCurrent_167"></td>
+                </tr>
+                <tr>
+                    <td>2.0</td>
+                    <td>72</td>
+                    <td><a href="geo:52.3912956,16.9782539">bench</a></td>
+                    <td>52.3912956</td>
+                    <td>16.9782539</td>
+                    <td id="importantPointDistFromCurrent_168"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3907376,16.9787928">waste_basket</a></td>
+                    <td>52.3907376</td>
+                    <td>16.9787928</td>
+                    <td id="importantPointDistFromCurrent_169"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3907656,16.9787933">bench</a></td>
+                    <td>52.3907656</td>
+                    <td>16.9787933</td>
+                    <td id="importantPointDistFromCurrent_170"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3905434,16.9782866">waste_basket</a></td>
+                    <td>52.3905434</td>
+                    <td>16.9782866</td>
+                    <td id="importantPointDistFromCurrent_171"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3906537,16.9785895">bench</a></td>
+                    <td>52.3906537</td>
+                    <td>16.9785895</td>
+                    <td id="importantPointDistFromCurrent_172"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3906552,16.9785482">waste_basket</a></td>
+                    <td>52.3906552</td>
+                    <td>16.9785482</td>
+                    <td id="importantPointDistFromCurrent_173"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3904208,16.9780362">waste_basket</a></td>
+                    <td>52.3904208</td>
+                    <td>16.9780362</td>
+                    <td id="importantPointDistFromCurrent_174"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3903636,16.9779165">waste_basket</a></td>
+                    <td>52.3903636</td>
+                    <td>16.9779165</td>
+                    <td id="importantPointDistFromCurrent_175"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3903035,16.9777933">waste_basket</a></td>
+                    <td>52.3903035</td>
+                    <td>16.9777933</td>
+                    <td id="importantPointDistFromCurrent_176"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3904629,16.9781199">bench</a></td>
+                    <td>52.3904629</td>
+                    <td>16.9781199</td>
+                    <td id="importantPointDistFromCurrent_177"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3904038,16.9779978">bench</a></td>
+                    <td>52.3904038</td>
+                    <td>16.9779978</td>
+                    <td id="importantPointDistFromCurrent_178"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3903458,16.9778779">bench</a></td>
+                    <td>52.3903458</td>
+                    <td>16.9778779</td>
+                    <td id="importantPointDistFromCurrent_179"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3902875,16.9777594">bench</a></td>
+                    <td>52.3902875</td>
+                    <td>16.9777594</td>
+                    <td id="importantPointDistFromCurrent_180"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3903527,16.9775857">board</a></td>
+                    <td>52.3903527</td>
+                    <td>16.9775857</td>
+                    <td id="importantPointDistFromCurrent_181"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3900156,16.9761661">vending_machine</a></td>
+                    <td>52.3900156</td>
+                    <td>16.9761661</td>
+                    <td id="importantPointDistFromCurrent_182"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3905794,16.9785756">waste_basket</a></td>
+                    <td>52.3905794</td>
+                    <td>16.9785756</td>
+                    <td id="importantPointDistFromCurrent_183"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3905794,16.978526">bench</a></td>
+                    <td>52.3905794</td>
+                    <td>16.978526</td>
+                    <td id="importantPointDistFromCurrent_184"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3899987,16.9777933">vending_machine</a></td>
+                    <td>52.3899987</td>
+                    <td>16.9777933</td>
+                    <td id="importantPointDistFromCurrent_185"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3900092,16.9777778">waste_basket</a></td>
+                    <td>52.3900092</td>
+                    <td>16.9777778</td>
+                    <td id="importantPointDistFromCurrent_186"></td>
+                </tr>
+                <tr>
+                    <td>2.1</td>
+                    <td>73</td>
+                    <td><a href="geo:52.38997682,16.97791044">scree</a></td>
+                    <td>52.38997682</td>
+                    <td>16.97791044</td>
+                    <td id="importantPointDistFromCurrent_187"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3901463,16.9789348">tower</a></td>
+                    <td>52.3901463</td>
+                    <td>16.9789348</td>
+                    <td id="importantPointDistFromCurrent_188"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3900269,16.9782019">bench</a></td>
+                    <td>52.3900269</td>
+                    <td>16.9782019</td>
+                    <td id="importantPointDistFromCurrent_189"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3900163,16.9781645">waste_basket</a></td>
+                    <td>52.3900163</td>
+                    <td>16.9781645</td>
+                    <td id="importantPointDistFromCurrent_190"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3900048,16.978127">bench</a></td>
+                    <td>52.3900048</td>
+                    <td>16.978127</td>
+                    <td id="importantPointDistFromCurrent_191"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3898808,16.9780559">waste_basket</a></td>
+                    <td>52.3898808</td>
+                    <td>16.9780559</td>
+                    <td id="importantPointDistFromCurrent_192"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3898209,16.9777892">waste_basket</a></td>
+                    <td>52.3898209</td>
+                    <td>16.9777892</td>
+                    <td id="importantPointDistFromCurrent_193"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3897655,16.9781103">waste_basket</a></td>
+                    <td>52.3897655</td>
+                    <td>16.9781103</td>
+                    <td id="importantPointDistFromCurrent_194"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.3898634,16.9779616">waste_basket</a></td>
+                    <td>52.3898634</td>
+                    <td>16.9779616</td>
+                    <td id="importantPointDistFromCurrent_195"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.39034495,16.979013000000002">bridge</a></td>
+                    <td>52.39034495</td>
+                    <td>16.979013000000002</td>
+                    <td id="importantPointDistFromCurrent_196"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.38974105,16.978195491666668">scree</a></td>
+                    <td>52.38974105</td>
+                    <td>16.978195491666668</td>
+                    <td id="importantPointDistFromCurrent_197"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.38999032,16.97817234">fitness_station</a></td>
+                    <td>52.38999032</td>
+                    <td>16.97817234</td>
+                    <td id="importantPointDistFromCurrent_198"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.38972818571428,16.977895285714286">scree</a></td>
+                    <td>52.38972818571428</td>
+                    <td>16.977895285714286</td>
+                    <td id="importantPointDistFromCurrent_199"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.389689880000006,16.9782275">shelter</a></td>
+                    <td>52.389689880000006</td>
+                    <td>16.9782275</td>
+                    <td id="importantPointDistFromCurrent_200"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.389803240000006,16.9780558">shelter</a></td>
+                    <td>52.389803240000006</td>
+                    <td>16.9780558</td>
+                    <td id="importantPointDistFromCurrent_201"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>73</td>
+                    <td><a href="geo:52.389765499999996,16.97788922">shelter</a></td>
+                    <td>52.389765499999996</td>
+                    <td>16.97788922</td>
+                    <td id="importantPointDistFromCurrent_202"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>74</td>
+                    <td><a href="geo:52.3899034,16.9789245">memorial Matka Boża</a></td>
+                    <td>52.3899034</td>
+                    <td>16.9789245</td>
+                    <td id="importantPointDistFromCurrent_203"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>74</td>
+                    <td><a href="geo:52.389673,16.9782496">waste_basket</a></td>
+                    <td>52.389673</td>
+                    <td>16.9782496</td>
+                    <td id="importantPointDistFromCurrent_204"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>74</td>
+                    <td><a href="geo:52.389644128571426,16.9784178">scree</a></td>
+                    <td>52.389644128571426</td>
+                    <td>16.9784178</td>
+                    <td id="importantPointDistFromCurrent_205"></td>
+                </tr>
+                <tr>
+                    <td>2.2</td>
+                    <td>74</td>
+                    <td><a href="geo:52.389647960000005,16.97829094">shelter</a></td>
+                    <td>52.389647960000005</td>
+                    <td>16.97829094</td>
+                    <td id="importantPointDistFromCurrent_206"></td>
+                </tr>
+                <tr>
+                    <td>2.4</td>
+                    <td>77</td>
+                    <td><a href="geo:52.389677766666665,16.980475416666668">scree</a></td>
+                    <td>52.389677766666665</td>
+                    <td>16.980475416666668</td>
+                    <td id="importantPointDistFromCurrent_207"></td>
+                </tr>
+                <tr>
+                    <td>2.4</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3901122,16.979371">wayside_cross</a></td>
+                    <td>52.3901122</td>
+                    <td>16.979371</td>
+                    <td id="importantPointDistFromCurrent_208"></td>
+                </tr>
+                <tr>
+                    <td>2.4</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3902705,16.9796392">waste_basket</a></td>
+                    <td>52.3902705</td>
+                    <td>16.9796392</td>
+                    <td id="importantPointDistFromCurrent_209"></td>
+                </tr>
+                <tr>
+                    <td>2.5</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3905325,16.9793893">waste_basket</a></td>
+                    <td>52.3905325</td>
+                    <td>16.9793893</td>
+                    <td id="importantPointDistFromCurrent_210"></td>
+                </tr>
+                <tr>
+                    <td>2.5</td>
+                    <td>78</td>
+                    <td><a href="geo:52.3905333,16.9793438">bench</a></td>
+                    <td>52.3905333</td>
+                    <td>16.9793438</td>
+                    <td id="importantPointDistFromCurrent_211"></td>
+                </tr>
+                <tr>
+                    <td>2.5</td>
+                    <td>79</td>
+                    <td><a href="geo:52.3906393,16.9793323">waste_basket</a></td>
+                    <td>52.3906393</td>
+                    <td>16.9793323</td>
+                    <td id="importantPointDistFromCurrent_212"></td>
+                </tr>
+                <tr>
+                    <td>2.5</td>
+                    <td>79</td>
+                    <td><a href="geo:52.3906383,16.9793682">bench</a></td>
+                    <td>52.3906383</td>
+                    <td>16.9793682</td>
+                    <td id="importantPointDistFromCurrent_213"></td>
+                </tr>
+                <tr>
+                    <td>2.5</td>
+                    <td>79</td>
+                    <td><a href="geo:52.3906179,16.9789874">bench</a></td>
+                    <td>52.3906179</td>
+                    <td>16.9789874</td>
+                    <td id="importantPointDistFromCurrent_214"></td>
+                </tr>
+                <tr>
+                    <td>2.5</td>
+                    <td>79</td>
+                    <td><a href="geo:52.3906178,16.9789754">waste_basket</a></td>
+                    <td>52.3906178</td>
+                    <td>16.9789754</td>
+                    <td id="importantPointDistFromCurrent_215"></td>
+                </tr>
+                <tr>
+                    <td>2.5</td>
+                    <td>79</td>
+                    <td><a href="geo:52.3908064,16.9798555">waste_basket</a></td>
+                    <td>52.3908064</td>
+                    <td>16.9798555</td>
+                    <td id="importantPointDistFromCurrent_216"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>77</td>
+                    <td><a href="geo:52.391084,16.9794598">playground</a></td>
+                    <td>52.391084</td>
+                    <td>16.9794598</td>
+                    <td id="importantPointDistFromCurrent_217"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>77</td>
+                    <td><a href="geo:52.3914288,16.9790838">fitness_station</a></td>
+                    <td>52.3914288</td>
+                    <td>16.9790838</td>
+                    <td id="importantPointDistFromCurrent_218"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3917502,16.9796626">bench</a></td>
+                    <td>52.3917502</td>
+                    <td>16.9796626</td>
+                    <td id="importantPointDistFromCurrent_219"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3916239,16.9809075">restaurant Country Grill Bar</a></td>
+                    <td>52.3916239</td>
+                    <td>16.9809075</td>
+                    <td id="importantPointDistFromCurrent_220"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3922573,16.9796767">bench</a></td>
+                    <td>52.3922573</td>
+                    <td>16.9796767</td>
+                    <td id="importantPointDistFromCurrent_221"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3923761,16.9800364">map</a></td>
+                    <td>52.3923761</td>
+                    <td>16.9800364</td>
+                    <td id="importantPointDistFromCurrent_222"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3921981,16.9800118">waste_basket</a></td>
+                    <td>52.3921981</td>
+                    <td>16.9800118</td>
+                    <td id="importantPointDistFromCurrent_223"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3924388,16.9812594">waste_basket</a></td>
+                    <td>52.3924388</td>
+                    <td>16.9812594</td>
+                    <td id="importantPointDistFromCurrent_224"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3924951,16.9811836">bench</a></td>
+                    <td>52.3924951</td>
+                    <td>16.9811836</td>
+                    <td id="importantPointDistFromCurrent_225"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3925373,16.98059">waste_basket</a></td>
+                    <td>52.3925373</td>
+                    <td>16.98059</td>
+                    <td id="importantPointDistFromCurrent_226"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3918813,16.9796621">bench</a></td>
+                    <td>52.3918813</td>
+                    <td>16.9796621</td>
+                    <td id="importantPointDistFromCurrent_227"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3918419,16.9796621">bench</a></td>
+                    <td>52.3918419</td>
+                    <td>16.9796621</td>
+                    <td id="importantPointDistFromCurrent_228"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3917873,16.9796626">bench</a></td>
+                    <td>52.3917873</td>
+                    <td>16.9796626</td>
+                    <td id="importantPointDistFromCurrent_229"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.3918215,16.9794805">bench</a></td>
+                    <td>52.3918215</td>
+                    <td>16.9794805</td>
+                    <td id="importantPointDistFromCurrent_230"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.39195244,16.979346800000002">pitch</a></td>
+                    <td>52.39195244</td>
+                    <td>16.979346800000002</td>
+                    <td id="importantPointDistFromCurrent_231"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.39221447999999,16.979744619999998">memorial Jezus Chrystus</a></td>
+                    <td>52.39221447999999</td>
+                    <td>16.979744619999998</td>
+                    <td id="importantPointDistFromCurrent_232"></td>
+                </tr>
+                <tr>
+                    <td>2.6</td>
+                    <td>76</td>
+                    <td><a href="geo:52.39182892,16.9795659">pitch</a></td>
+                    <td>52.39182892</td>
+                    <td>16.9795659</td>
+                    <td id="importantPointDistFromCurrent_233"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
+
