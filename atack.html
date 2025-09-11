@@ -1,0 +1,1121 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>atak.gpx</title>
+    <style>
+        body { font-family: sans-serif; }
+        canvas { }
+        #itineraryTable th {
+            position: sticky;
+            top: 0;
+            background-color: #f2f2f2; /* Add a background to prevent content from showing through */
+            z-index: 1; /* Ensure it stays on top of scrolling content */
+        }
+        .current-position-row {
+            font-weight: bold;
+            color: red;
+        }
+        #itineraryTable th:nth-child(4),
+        #itineraryTable td:nth-child(4),
+        #itineraryTable th:nth-child(5),
+        #itineraryTable td:nth-child(5) {
+            display: none;
+        }
+        #itineraryTable {
+        }
+        #itineraryTable th {
+            font-size: 2em;
+        }
+        #itineraryTable td {
+            font-size: 3em;
+        }
+        .switch {
+          position: relative;
+          display: inline-block;
+          width: 120px;
+          height: 68px;
+        }
+
+        .switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+
+        .slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: #ccc;
+          -webkit-transition: .4s;
+          transition: .4s;
+        }
+
+        .slider:before {
+          position: absolute;
+          content: "";
+          height: 52px;
+          width: 52px;
+          left: 8px;
+          bottom: 8px;
+          background-color: white;
+          -webkit-transition: .4s;
+          transition: .4s;
+        }
+
+        input:checked + .slider {
+          background-color: #2196F3;
+        }
+
+        input:focus + .slider {
+          box-shadow: 0 0 1px #2196F3;
+        }
+
+        input:checked + .slider:before {
+          -webkit-transform: translateX(52px);
+          -ms-transform: translateX(52px);
+          transform: translateX(52px);
+        }
+
+        /* Rounded sliders */
+        .slider.round {
+          border-radius: 68px;
+        }
+
+        .slider.round:before {
+          border-radius: 50%;
+        }
+        /* Modal styles */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgb(0,0,0); 
+            background-color: rgba(0,0,0,0.4); 
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; 
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; 
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="myModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+    <div style="position: absolute; top: 10px; left: 10px; z-index: 10; font-size: 2em; display: flex; align-items: center; background-color: white; padding: 10px; border-radius: 5px; opacity: 0.6;">
+        <label class="switch">
+          <input type="checkbox" id="autoScrollToggle" checked>
+          <span class="slider round"></span>
+        </label>
+    </div>
+    <div id="gpsStatus" style="position: absolute; top: 10px; right: 10px; z-index: 10; font-size: 2em; opacity: 0.8;"></div>
+    <canvas id="profileCanvas" style="width: 100%; height: 33vh;"></canvas>
+    <script>
+        window.addEventListener('load', function() {
+            const canvas = document.getElementById('profileCanvas');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            const elevations = [1408.0, 1408.0, 1409.0, 1411.0, 1412.0, 1416.0, 1418.0, 1420.0, 1421.0, 1423.0, 1424.0, 1426.0, 1427.0, 1429.0, 1430.0, 1432.0, 1433.0, 1434.0, 1434.0, 1436.0, 1438.0, 1443.0, 1444.0, 1444.0, 1445.0, 1445.0, 1446.0, 1446.0, 1446.0, 1447.0, 1447.0, 1448.0, 1449.0, 1452.0, 1456.0, 1458.0, 1460.0, 1464.0, 1466.0, 1467.0, 1469.0, 1469.0, 1470.0, 1470.0, 1470.0, 1471.0, 1472.0, 1473.0, 1474.0, 1476.0, 1478.0, 1482.0, 1480.0, 1478.0, 1477.0, 1477.0, 1478.0, 1480.0, 1481.0, 1482.0, 1483.0, 1485.0, 1487.0, 1489.0, 1491.0, 1493.0, 1494.0, 1499.0, 1504.0, 1510.0, 1510.0, 1509.0, 1509.0, 1508.0, 1508.0, 1507.0, 1508.0, 1508.0, 1508.0, 1513.0, 1518.0, 1528.0, 1538.0, 1541.0, 1545.0, 1551.0, 1555.0, 1559.0, 1562.0, 1566.0, 1568.0, 1570.0, 1573.0, 1577.0, 1581.0, 1583.0, 1587.0, 1589.0, 1595.0, 1596.0, 1596.0, 1597.0];
+            const distances = [0, 0.0034782904821944608, 0.012093046606660815, 0.03644141257388288, 0.04937035484791991, 0.08396686688393229, 0.10177645181084816, 0.11852866003044703, 0.12726463116149717, 0.13603566216833302, 0.1422841823957102, 0.14739140239537546, 0.15144911875244457, 0.16165003352340457, 0.16417506884372904, 0.17168578904845389, 0.17555546169415007, 0.1775438495303257, 0.1805016243789532, 0.1856581032697927, 0.19473695740477168, 0.21331853853156096, 0.2159436370176303, 0.2172199906673708, 0.21879058180855274, 0.220170535254143, 0.22309510282168604, 0.22586187322878554, 0.227941054085035, 0.22953705412635747, 0.23073012058381184, 0.2317915649706506, 0.23580440118753695, 0.2439095782496892, 0.25667822258655076, 0.2698355430429378, 0.2836033635247932, 0.29846258702965595, 0.30957873032410155, 0.3154870823742386, 0.32127482606934166, 0.3223536004863547, 0.3231275358568814, 0.32415031694111984, 0.3250232837454569, 0.3277738407961017, 0.3310179064302141, 0.3390238058341157, 0.34617900207809343, 0.3526426999548101, 0.3594661290343605, 0.37100870917820433, 0.38273708280495716, 0.3953966544220407, 0.3988616100504593, 0.4009832352106649, 0.40320953796949255, 0.4075023810031714, 0.4109955211467033, 0.41428884811508937, 0.4185387945386715, 0.424707010009532, 0.43155005472082447, 0.4395533576365828, 0.4468366321667696, 0.45146664639378625, 0.45605759932227824, 0.47035047458445406, 0.48287756664605347, 0.5053975688947271, 0.5064195132846253, 0.5071978777707522, 0.5091672501222609, 0.51221780894345, 0.5147762603167042, 0.5185803943575973, 0.5198223944309065, 0.5210392521778018, 0.5225825931241358, 0.5397976687158957, 0.5550120668120657, 0.5762544456579748, 0.5993511093537981, 0.6071425940733391, 0.618527605492165, 0.6299547278892135, 0.6410174184399533, 0.6482706911074126, 0.6554829378667908, 0.6643803118647957, 0.6736103369312978, 0.683824258589149, 0.6931866445863154, 0.7107805009537539, 0.7230281111193578, 0.7295279677732348, 0.7403905668866179, 0.7522806005295477, 0.7768072709103379, 0.7824769733099053, 0.7897175599039016, 0.8026120770802119];
+            const lats = [50.738043, 50.738013, 50.73794, 50.737757, 50.737684, 50.737438, 50.737309, 50.737191, 50.737127, 50.737064, 50.737018, 50.736981, 50.736952, 50.736893, 50.736888, 50.736848, 50.736828, 50.736821, 50.73682, 50.736816, 50.736815, 50.736818, 50.736815, 50.736811, 50.7368, 50.736788, 50.736764, 50.736741, 50.736723, 50.736709, 50.736704, 50.736705, 50.736704, 50.736708, 50.736716, 50.736728, 50.736738, 50.736743, 50.736754, 50.736762, 50.736766, 50.736764, 50.73676, 50.736751, 50.736745, 50.736725, 50.736704, 50.736651, 50.7366, 50.736546, 50.736491, 50.736391, 50.736291, 50.73618, 50.736149, 50.736131, 50.736123, 50.736123, 50.736131, 50.736152, 50.736176, 50.736211, 50.736242, 50.736286, 50.736316, 50.736328, 50.736336, 50.73634, 50.736341, 50.73634, 50.736334, 50.736327, 50.736311, 50.736287, 50.736264, 50.73623, 50.736227, 50.736225, 50.736229, 50.736262, 50.736297, 50.73635, 50.73642, 50.736438, 50.73646, 50.736467, 50.736472, 50.736459, 50.736448, 50.736436, 50.736425, 50.736429, 50.736427, 50.736426, 50.736414, 50.736404, 50.736387, 50.736364, 50.736301, 50.736286, 50.736225, 50.736115];
+            const lons = [15.73139, 15.731404, 15.731445, 15.731635, 15.731778, 15.732079, 15.732229, 15.732377, 15.732449, 15.732524, 15.732575, 15.732618, 15.732653, 15.732764, 15.732799, 15.732885, 15.73293, 15.732956, 15.732998, 15.733071, 15.7332, 15.733464, 15.733501, 15.733518, 15.733532, 15.733537, 15.73352, 15.733505, 15.733497, 15.733502, 15.733517, 15.733532, 15.733589, 15.733704, 15.733885, 15.734071, 15.734266, 15.734477, 15.734634, 15.734717, 15.734799, 15.734814, 15.734823, 15.73482, 15.734812, 15.734789, 15.734757, 15.73468, 15.734618, 15.734584, 15.734541, 15.734497, 15.734444, 15.734404, 15.734399, 15.734409, 15.734438, 15.734499, 15.734547, 15.73458, 15.734627, 15.734695, 15.734779, 15.734869, 15.734961, 15.735024, 15.735088, 15.735291, 15.735469, 15.735789, 15.7358, 15.7358, 15.735788, 15.735767, 15.735768, 15.735774, 15.735791, 15.735808, 15.735829, 15.736068, 15.736277, 15.736567, 15.736876, 15.736983, 15.737141, 15.737303, 15.73746, 15.737561, 15.737662, 15.737787, 15.737917, 15.738062, 15.738195, 15.738445, 15.738618, 15.738709, 15.738861, 15.739026, 15.73936, 15.739437, 15.739473, 15.739531];
+            const importantPointsData = [{"name": "waterfall Wodospad \u0141omniczki", "lat": 50.7426063, "lon": 15.7323472, "trail_distance": 0, "trail_elevation": 1408.0}, {"name": "viewpoint", "lat": 50.7387514, "lon": 15.7288156, "trail_distance": 0, "trail_elevation": 1408.0}, {"name": "peak Kopa", "lat": 50.7466406, "lon": 15.7303155, "wikidata": "Q3198841", "html": "<div><table><caption><style>.mw-parser-output .infobox>caption>.iboxt-flex{display:flex;justify-content:flex-start;align-items:center;gap:4px}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-ikona{flex-grow:0;flex-shrink:0;font-size:7px;max-width:40px;overflow:hidden}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-tekst{flex-grow:1}.mw-parser-output .infobox>caption .iboxt-1{font-weight:bold}.mw-parser-output .infobox>caption .iboxt-2{font-style:italic}.mw-parser-output .infobox>caption .iboxt-3{font-style:italic;font-size:90%}</style><div>Kopa</div></caption><tbody><tr><td><span></span><br>Kopa</td></tr><tr><th>Pa\u0144stwo</th><td><p><span><span><span></span></span>&#160;</span>Polska</p></td></tr><tr><th>Po\u0142o\u017cenie</th><td><p>powiat karkonoski</p></td></tr><tr><th>Pasmo</th><td><p>Sudety,<br>Karkonosze,<br>\u015al\u0105ski Grzbiet</p></td></tr><tr><th>Wysoko\u015b\u0107</th><td><p>1378 m n.p.m.</p></td></tr><tr><td><div><div>Po\u0142o\u017cenie na mapie Sudet\u00f3w</div><div><div><span><span></span></span><div><div><span></span></div><div><span>Kopa</span></div></div></div></div></div></td></tr><tr><td><span><span></span><span><span><span>50\u00b044\u203247,91\u2033N</span>&#160;<span>15\u00b043\u203249,14\u2033E</span></span></span><span>/</span><span><span><span>50,746642</span>&#160;<span>15,730317</span></span></span></span></td></tr><tr><td><table><tbody><tr><td><span></span></td><td>Multimedia w Wikimedia Commons</td></tr></tbody></table></td></tr></table><p><b>Kopa</b>, Czarna Kopa lub Ma\u0142a Kopa (niem.&#160;<em>Kleine Koppe</em>, ok. 1378 m n.p.m.<sup><span>&#91;</span>1<span>&#93;</span></sup>) \u2013 szczyt w Karkonoszach. Poni\u017cej szczytu znajduje si\u0119 punkt pomiarowy 1377,4, co powoduje, \u017ce wi\u0119kszo\u015b\u0107 map i przewodnik\u00f3w podaje wysoko\u015b\u0107 1377 (zob. np.<sup><span>&#91;</span>2<span>&#93;</span></sup><sup><span>&#91;</span>3<span>&#93;</span></sup>).</p><p>Po\u0142o\u017cony jest w g\u0142\u00f3wnym grzbiecie Karkonoszy (\u015al\u0105skim Grzbiecie) pomi\u0119dzy \u015anie\u017ck\u0105 (1603 m n.p.m.) a Smogorni\u0105 (1490 m n.p.m.)<sup><span>&#91;</span>2<span>&#93;</span></sup>. Od wschodu Kop\u0119 od Czarnego Grzbietu oddziela Prze\u0142\u0119cz pod \u015anie\u017ck\u0105 (1394 m n.p.m.), a od zachodu Czarny Grzbiet od \u015anie\u017cki oddziela Czarna Prze\u0142\u0119cz (1348 m n.p.m.)<sup><span>&#91;</span>2<span>&#93;</span></sup>.</p><p>Partia szczytowa i stoki Kopy zbudowane s\u0105 z granitu karkonoskiego<sup><span>&#91;</span>2<span>&#93;</span></sup>. Na stoku p\u00f3\u0142nocnym (po stronie polskiej) znajduje si\u0119 nisza niwalna Kocio\u0142 \u0141omniczki, a na stoku po\u0142udniowym (po stronie czeskiej) znajduj\u0105 si\u0119 \u017ar\u00f3d\u0142a rzeki Upy<sup><span>&#91;</span>2<span>&#93;</span></sup>.</p><p>Szczyt jest dobrym punktem widokowym na Karkonosze, Kotlin\u0119 Jeleniog\u00f3rsk\u0105, Rudawy Janowickie i G\u00f3ry Kaczawskie<sup><span>&#91;</span>2<span>&#93;</span></sup>. Przez Kop\u0119 przechodzi g\u0142\u00f3wny (czerwony) szlak turystyczny (Droga Przyja\u017ani Polsko-Czeskiej) z Szklarskiej Por\u0119by na Prze\u0142\u0119cz Okraj<sup><span>&#91;</span>4<span>&#93;</span></sup>.</p><h2><span>Szlaki turystyczne</span></h2><p>Przez Kop\u0119 przechodz\u0105 nast\u0119puj\u0105ce szlaki<sup><span>&#91;</span>5<span>&#93;</span></sup>:</p><ul><li><span></span> G\u0142\u00f3wny Szlak Sudecki: Szklarska Por\u0119ba - Szrenica - Prze\u0142\u0119cz Karkonoska - Kopa - \u015anie\u017cka - Prze\u0142\u0119cz Okraj</li></ul><h2><span>Zobacz te\u017c</span></h2><ul><li>Kopa nad Moren\u0105</li></ul><h2><span>Przypisy</span></h2><ol><li><span><span><a href=\"#cite_ref-1\">^</a></span> <span><cite>Geoportal</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2017-04-28]</span></span>.</span></li><li><span>^ <sup><span>a</span></sup> <sup><span>b</span></sup> <sup><span>c</span></sup> <sup><span>d</span></sup> <sup><span>e</span></sup> <sup><span>f</span></sup></span> <span><cite>S\u0142ownik geografii turystycznej Sudet\u00f3w</cite>. red. Marek Staffa. T. 3: Karkonosze. Warszawa \u2013 Krak\u00f3w: Wydawnictwo PTTK \u201eKraj\u201d, 1993. <span title=\"Mi\u0119dzynarodowy Znormalizowany Numer Ksi\u0105\u017cki\">ISBN</span>&#160;83-7005-168-5.</span></li><li><span><span><a href=\"#cite_ref-3\">^</a></span> <span><cite>Mapa szlak\u00f3w turystycznych</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2017-11-24]</span></span>.</span></li><li><span><span><a href=\"#cite_ref-4\">^</a></span> <span><cite>Mapa turystyczna</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2018-05-08]</span></span>.</span></li><li><span><span><a href=\"#cite_ref-5\">^</a></span> <span><cite>Mapa szlak\u00f3w turystycznych</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2017-11-24]</span></span>.</span></li></ol></div>", "trail_distance": 0, "trail_elevation": 1408.0}, {"name": "toilets", "lat": 50.7395813, "lon": 15.7288154, "trail_distance": 0, "trail_elevation": 1408.0}, {"name": "board Odnowa w \u015brodowisku - 'Czarny Tr\u00f3jkat' nabiera kolor\u00f3w", "lat": 50.7380538, "lon": 15.7312471, "trail_distance": 0, "trail_elevation": 1408.0}, {"name": "defibrillator", "lat": 50.7394988, "lon": 15.7289792, "trail_distance": 0, "trail_elevation": 1408.0}, {"name": "defibrillator", "lat": 50.7394814, "lon": 15.7288465, "trail_distance": 0, "trail_elevation": 1408.0}, {"name": "access_point", "lat": 50.7380667, "lon": 15.7313486, "trail_distance": 0, "trail_elevation": 1408.0}, {"name": "alpine_hut Dom \u015al\u0105ski", "lat": 50.739515572222224, "lon": 15.728952672222224, "wikidata": "Q9334361", "html": "<div><div><span></span><span>Ten artyku\u0142 dotyczy schroniska w Karkonoszach. Zobacz te\u017c: Hotel g\u00f3rski \u201e\u015al\u0105ski Dom\u201d w Tatrach Wysokich.</span></div><table><caption><style>.mw-parser-output .infobox>caption>.iboxt-flex{display:flex;justify-content:flex-start;align-items:center;gap:4px}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-ikona{flex-grow:0;flex-shrink:0;font-size:7px;max-width:40px;overflow:hidden}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-tekst{flex-grow:1}.mw-parser-output .infobox>caption .iboxt-1{font-weight:bold}.mw-parser-output .infobox>caption .iboxt-2{font-style:italic}.mw-parser-output .infobox>caption .iboxt-3{font-style:italic;font-size:90%}</style><div>Schronisko G\u00f3rskie \u201eDom \u015al\u0105ski\u201d</div></caption><tbody><tr><td><span></span><br>Dom \u015al\u0105ski</td></tr><tr><th>Pa\u0144stwo</th><td><p><span><span><span></span></span>&#160;</span>Polska</p></td></tr><tr><th>Pasmo</th><td><p>Karkonosze, Sudety</p></td></tr><tr><th>Wysoko\u015b\u0107</th><td><p>1400 m n.p.m.</p></td></tr><tr><th>Data otwarcia</th><td><p>1922</p></td></tr><tr><td><div><div>Po\u0142o\u017cenie na mapie Sudet\u00f3w</div><div><div><span><span></span></span><div><div><span></span></div><div><span>Schronisko G\u00f3rskie \u201eDom \u015al\u0105ski\u201d</span></div></div></div></div></div></td></tr><tr><td><span><span></span><span><span><span>50\u00b044\u203222,21\u2033N</span>&#160;<span>15\u00b043\u203244,37\u2033E</span></span></span><span>/</span><span><span><span>50,739503</span>&#160;<span>15,728992</span></span></span></span></td></tr><tr><td><table><tbody><tr><td><span></span></td><td>Multimedia w Wikimedia Commons</td></tr></tbody></table></td></tr><tr><td>Strona internetowa</td></tr></tbody></table><figure><figcaption>Widok od zachodu</figcaption></figure><figure><figcaption>Widok od wschodu</figcaption></figure><figure><figcaption>Schronisko na tle \u015anie\u017cki</figcaption></figure><p><b>Schronisko G\u00f3rskie \u201eDom \u015al\u0105ski\u201d</b> (niem. <em>Schlesierhaus</em>) \u2013 schronisko turystyczne w Karkonoszach, po\u0142o\u017cone na Prze\u0142\u0119czy pod \u015anie\u017ck\u0105, na wysoko\u015bci 1400 m n.p.m.<sup><span>&#91;</span>1<span>&#93;</span></sup>, na terenie Polski, w granicach administracyjnych Karpacza.</p><p>Obiekt znajduje si\u0119 na R\u00f3wni pod \u015anie\u017ck\u0105, u podn\u00f3\u017ca \u015anie\u017cki, przy granicy polsko-czeskiej (w przesz\u0142o\u015bci na styku granic Czech, \u015al\u0105ska i \u0141u\u017cyc). Jest wa\u017cnym w\u0119z\u0142em szlak\u00f3w turystycznych po obu stronach granicy. Do schroniska mo\u017cna dotrze\u0107 G\u0142\u00f3wnym Szlakiem Sudeckim z R\u00f3wni pod \u015anie\u017ck\u0105 lub z Prze\u0142\u0119czy Okraj. Jest najwy\u017cej po\u0142o\u017conym schroniskiem w Karkonoszach i w Sudetach po polskiej stronie.</p><h2><span>Historia</span></h2><h3><span>Dawne obserwatoria</span></h3><p>Pierwszy budynek w tym miejscu powsta\u0142 w 1847 z inicjatywy Johanna Adolfa Bergera z P\u0142\u00f3czek Dolnych ko\u0142o Lw\u00f3wka \u015al\u0105skiego, kt\u00f3ry wydzier\u017cawi\u0142 parcel\u0119 od hrabiego von Schaffgotscha. By\u0142o to prymitywne schronisko z cz\u0119\u015bci\u0105 gastronomiczn\u0105 i noclegow\u0105 (15 miejsc). Nosi\u0142o nazw\u0119 <em>Heldmannbaude</em>. W 1888 sp\u0142on\u0119\u0142o. W 1896 powsta\u0142 nowy, wi\u0119kszy obiekt, kt\u00f3ry jednak sp\u0142on\u0105\u0142 w 1901. W 1904 postawiono nowy, murowany budynek, kt\u00f3ry w 1922 zosta\u0142 rozbudowany i w tej formie istnieje do dzi\u015b. W\u0142a\u015bcicielem by\u0142 Franz Krauss. Schronisko dysponowa\u0142o 60 miejscami noclegowymi. W 1923 dobudowano werand\u0119. Po 1945 schronisko przej\u0119\u0142o PTT, a od 1951 PTTK. W 1950 obiekt otrzyma\u0142 nazw\u0119 \u201eDom \u015al\u0105ski\u201d i imi\u0119 Bronis\u0142awa Czecha, ale ostatecznie patrona usuni\u0119to. W latach 1982\u20131992 w schronisku mie\u015bci\u0142a si\u0119 stra\u017cnica Wojsk Ochrony Pogranicza, a PTTK by\u0142o tylko dzier\u017cawc\u0105 cz\u0119\u015bci pomieszcze\u0144. Obecnie schronisko jest w\u0142asno\u015bci\u0105 prywatn\u0105.</p><h2><span>Szlaki turystyczne</span></h2><p>W pobli\u017cu schroniska znajduje si\u0119 w\u0119ze\u0142 szlak\u00f3w turystycznych<sup><span>&#91;</span>2<span>&#93;</span></sup>:</p><ul><li><span></span> \u2013 niebieski szlak z Karpacza przez Bia\u0142y Jar na \u015anie\u017ck\u0119,</li><li><span></span> \u2013 czerwony fragment G\u0142\u00f3wnego Szlaku Sudeckiego z Prze\u0142\u0119czy Karkonoskiej do Karpacza,</li><li><span></span> \u2013 czarny szlak na \u015anie\u017ck\u0119 (zwany \u201eDrog\u0105 Przyja\u017ani\u201d),</li><li><span></span> \u2013 \u017c\u00f3\u0142ty szlak do schroniska PTTK \u201eStrzecha Akademicka\u201d,</li><li>po stronie czeskiej:</li><li><span></span> \u2013 niebieski szlak do schroniska <i>Lu\u010dn\u00ed bouda</i>,</li><li><span></span> \u2013 \u017c\u00f3\u0142ty szlak do miejscowo\u015bci Pec pod Sn\u011b\u017ekou.</li></ul><h2><span>Przypisy</span></h2><ol><li><span><span><a href=\"#cite_ref-1\">^</a></span> <span><cite>Geoportal</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2017-04-28]</span></span>.</span></li><li><span><span><a href=\"#cite_ref-2\">^</a></span> <span><cite>Mapa szlak\u00f3w turystycznych</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2020-09-25]</span></span>.</span></li></ol><h2><span>Bibliografia</span></h2><ul><li> <i>S\u0142ownik geografii turystycznej Sudet\u00f3w</i>, t. 3 Karkonosze, red. Marek Staffa, Wydawnictwo PTTK \u201eKraj\u201d, Warszawa \u2013 Krak\u00f3w 1993, <span title=\"Mi\u0119dzynarodowy Znormalizowany Numer Ksi\u0105\u017cki\">ISBN</span>&#160;83-7005-168-5.</li><li> Mapa turystyczna Karkonosze polskie i czeskie 1:25 000, Wydawnictwo \u201ePlan\u201d, Jelenia G\u00f3ra, <span title=\"Mi\u0119dzynarodowy Znormalizowany Numer Ksi\u0105\u017cki\">ISBN</span>&#160;83-88049-26-7.</li></ul><div><br></div></div>", "trail_distance": 0, "trail_elevation": 1408.0}, {"name": "waterfall Vodop\u00e1d \u00dapi\u010dky", "lat": 50.7363425, "lon": 15.7243939, "trail_distance": 0.012093046606660815, "trail_elevation": 1409.0}, {"name": "waterfall Lavinov\u00fd vodop\u00e1d", "lat": 50.7328879, "lon": 15.7217214, "trail_distance": 0.03644141257388288, "trail_elevation": 1411.0}, {"name": "viewpoint", "lat": 50.7361115, "lon": 15.7342221, "trail_distance": 0.3988616100504593, "trail_elevation": 1477.0}, {"name": "waterfall Doln\u00ed \u00dapsk\u00fd vodop\u00e1d", "lat": 50.7306509, "lon": 15.7269952, "trail_distance": 0.4009832352106649, "trail_elevation": 1477.0}, {"name": "valley \u00dapsk\u00e1 j\u00e1ma", "lat": 50.730417472727275, "lon": 15.726579363636365, "trail_distance": 0.4009832352106649, "trail_elevation": 1477.0}, {"name": "waterfall Vodop\u00e1dy Rudn\u00e9ho potoka", "lat": 50.7324051, "lon": 15.7327833, "trail_distance": 0.40320953796949255, "trail_elevation": 1478.0}, {"name": "viewpoint", "lat": 50.7361467, "lon": 15.7355784, "trail_distance": 0.5185803943575973, "trail_elevation": 1507.0}, {"name": "memorial Jan Messner a \u0160tefan Spusta", "lat": 50.7364086, "lon": 15.7372914, "trail_distance": 0.6299547278892135, "trail_elevation": 1551.0}, {"name": "wayside_cross", "lat": 50.7364085, "lon": 15.7373009, "trail_distance": 0.6299547278892135, "trail_elevation": 1551.0}, {"name": "cliff Ob\u0159\u00ed d\u016fl", "lat": 50.73603889361702, "lon": 15.737752923404255, "trail_distance": 0.6643803118647957, "trail_elevation": 1566.0}, {"name": "viewpoint", "lat": 50.7360302, "lon": 15.7387823, "trail_distance": 0.7403905668866179, "trail_elevation": 1587.0}, {"name": "bench", "lat": 50.7361053, "lon": 15.7389759, "trail_distance": 0.7522806005295477, "trail_elevation": 1589.0}, {"name": "viewpoint", "lat": 50.7363687, "lon": 15.7394005, "trail_distance": 0.7768072709103379, "trail_elevation": 1595.0}, {"name": "viewpoint", "lat": 50.7365714, "lon": 15.7398808, "trail_distance": 0.7824769733099053, "trail_elevation": 1596.0}, {"name": "bench", "lat": 50.7364474, "lon": 15.7402425, "trail_distance": 0.7824769733099053, "trail_elevation": 1596.0}, {"name": "bench", "lat": 50.7364537, "lon": 15.7401163, "trail_distance": 0.7824769733099053, "trail_elevation": 1596.0}, {"name": "bench", "lat": 50.7364553, "lon": 15.7401723, "trail_distance": 0.7824769733099053, "trail_elevation": 1596.0}, {"name": "picnic_site", "lat": 50.7365457, "lon": 15.7398797, "trail_distance": 0.7824769733099053, "trail_elevation": 1596.0}, {"name": "bench", "lat": 50.736554, "lon": 15.7399189, "trail_distance": 0.7824769733099053, "trail_elevation": 1596.0}, {"name": "bench", "lat": 50.7365722, "lon": 15.7398107, "trail_distance": 0.7824769733099053, "trail_elevation": 1596.0}, {"name": "bench", "lat": 50.7365728, "lon": 15.7398535, "trail_distance": 0.7824769733099053, "trail_elevation": 1596.0}, {"name": "memorial 45 lat ludowego wojska polskiego", "lat": 50.7363055, "lon": 15.7395391, "trail_distance": 0.7824769733099053, "trail_elevation": 1596.0}, {"name": "waste_basket", "lat": 50.7364144, "lon": 15.7400535, "trail_distance": 0.7824769733099053, "trail_elevation": 1596.0}, {"name": "tower Wysokog\u00f3rskie Obserwatorium Meteorologiczne na \u015anie\u017cce", "lat": 50.73636042941177, "lon": 15.739708388235295, "wikidata": "Q11795181", "html": "<div><table><caption><style>.mw-parser-output .infobox>caption>.iboxt-flex{display:flex;justify-content:flex-start;align-items:center;gap:4px}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-ikona{flex-grow:0;flex-shrink:0;font-size:7px;max-width:40px;overflow:hidden}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-tekst{flex-grow:1}.mw-parser-output .infobox>caption .iboxt-1{font-weight:bold}.mw-parser-output .infobox>caption .iboxt-2{font-style:italic}.mw-parser-output .infobox>caption .iboxt-3{font-style:italic;font-size:90%}</style><div>Wysokog\u00f3rskie Obserwatorium Meteorologiczne im. Tadeusza Ho\u0142dysa na \u015anie\u017cce</div></caption><tbody><tr><td><span><span></span></span> nr rej. A/6174 z 8.06.2020<sup><span>&#91;</span>1<span>&#93;</span></sup></td></tr><tr><td><span></span></td></tr><tr><th>Pa\u0144stwo</th><td><p><span><span><span></span></span>&#160;</span>Polska</p></td></tr><tr><th>Miejscowo\u015b\u0107</th><td><p>Karpacz</p></td></tr><tr><th>Typ budynku</th><td><p>obserwatorium</p></td></tr><tr><th>Architekt</th><td><p>Waldemar Wawrzyniak,<br>Witold Lipi\u0144ski</p></td></tr><tr><th>Rozpocz\u0119cie budowy</th><td><p>1966</p></td></tr><tr><th>Uko\u0144czenie budowy</th><td><p>1974</p></td></tr><tr><th>Pierwszy w\u0142a\u015bciciel</th><td><p>IMGW</p></td></tr><tr><td><div><div>Po\u0142o\u017cenie na mapie Sudet\u00f3w</div><div><div><span><span></span></span><div><div><span></span></div><div><span>Wysokog\u00f3rskie Obserwatorium Meteorologiczne im. Tadeusza Ho\u0142dysa na \u015anie\u017cce</span></div></div></div></div></div></td></tr><tr><td><span><span></span><span><span><span>50\u00b044\u203211\u2033N</span>&#160;<span>15\u00b044\u203223\u2033E</span></span></span><span>/</span><span><span><span>50,736389</span>&#160;<span>15,739722</span></span></span></span></td></tr><tr><td><table><tbody><tr><td><span></span></td><td>Multimedia w Wikimedia Commons</td></tr></tbody></table></td></tr></table><p><b>Wysokog\u00f3rskie Obserwatorium Meteorologiczne im. Tadeusza Ho\u0142dysa na \u015anie\u017cce</b> \u2013 plac\u00f3wka Instytutu Meteorologii i Gospodarki Wodnej, zlokalizowana na szczycie \u015anie\u017cki, najwy\u017cszej g\u00f3ry Karkonoszy i Sudet\u00f3w. Od 1985 nosi imi\u0119 Tadeusza Ho\u0142dysa, wieloletniego kierownika obserwatorium.</p><p>Budynek, w kt\u00f3rym mie\u015bci si\u0119 obserwatorium, zosta\u0142 wzniesiony w latach 1966\u20131974. Ma form\u0119 trzech po\u0142\u0105czonych ze sob\u0105 bry\u0142 w kszta\u0142cie dysk\u00f3w (czasem okre\u015blanych jako talerze lub spodki). Jest to jeden z najbardziej charakterystycznych obiekt\u00f3w wsp\u00f3\u0142czesnej architektury polskiej, zaliczany do nurtu modernizmu. W 2020 zosta\u0142 wpisany do rejestru zabytk\u00f3w.</p><h2><span>Historia</span></h2><h3><span>Dawne obserwatoria</span></h3><p>Pierwsze obserwacje meteorologiczne na \u015anie\u017cce rozpocz\u0119to w 1824, ale mia\u0142y one charakter nieregularny. W 1880 powsta\u0142o pierwsze sta\u0142e obserwatorium, kt\u00f3re mie\u015bci\u0142o si\u0119 w kaplicy \u015bw. Wawrzy\u0144ca. W 1899 wzniesiono nowy, murowany budynek obserwatorium, kt\u00f3ry s\u0142u\u017cy\u0142 do 1976. Zosta\u0142 on rozebrany w 1989.</p><h3><span>Obecny budynek</span></h3><p>Decyzj\u0119 o budowie nowego obserwatorium podj\u0119to w latach 60. XX wieku. Konkurs na projekt architektoniczny wygrali Witold Lipi\u0144ski i Waldemar Wawrzyniak z Politechniki Wroc\u0142awskiej. Budowa trwa\u0142a od 1966 do 1974. Obiekt zosta\u0142 oficjalnie otwarty 13 listopada 1974.</p><p>W 2009 g\u00f3rny dysk budynku zosta\u0142 uszkodzony przez wichur\u0119. W 2015 przeprowadzono remont, kt\u00f3ry obejmowa\u0142 m.in. wzmocnienie konstrukcji i wymian\u0119 okien.</p><h2><span>Architektura</span></h2><p>Budynek sk\u0142ada si\u0119 z trzech dysk\u00f3w, kt\u00f3re s\u0105 ze sob\u0105 po\u0142\u0105czone. W najwy\u017cszym dysku znajduje si\u0119 taras widokowy, w \u015brodkowym \u2013 pomieszczenia techniczne i pokoje pracownik\u00f3w, a w najni\u017cszym \u2013 restauracja i toalety. Konstrukcja budynku jest wykonana z \u017celbetu, a elewacje pokryte s\u0105 blach\u0105 miedzian\u0105.</p><h2><span>Zobacz te\u017c</span></h2><ul><li> Obserwatorium astronomiczne na \u015anie\u017cce</li></ul><h2><span>Przypisy</span></h2><ol><li><span><span><a href=\"#cite_ref-1\">^</a></span> <span><cite><span>Rejestr zabytk\u00f3w nieruchomych woj. dolno\u015bl\u0105skiego</span><span>. Narodowy Instytut Dziedzictwa. s.&#160;69. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2020-08-23]</span></span></cite>.</span></li></ol><h2><span>Linki zewn\u0119trzne</span></h2><ul><li> <span>Oficjalna strona obserwatorium</span></li></ul></div>", "trail_distance": 0.7824769733099053, "trail_elevation": 1596.0}, {"name": "cliff", "lat": 50.7365827625, "lon": 15.7397726125, "trail_distance": 0.7824769733099053, "trail_elevation": 1596.0}, {"name": "viewpoint", "lat": 50.7364344, "lon": 15.740221, "trail_distance": 0.7897175599039016, "trail_elevation": 1596.0}, {"name": "bench", "lat": 50.7362066, "lon": 15.7396227, "trail_distance": 0.7897175599039016, "trail_elevation": 1596.0}, {"name": "bench", "lat": 50.7364104, "lon": 15.7402563, "trail_distance": 0.7897175599039016, "trail_elevation": 1596.0}, {"name": "picnic_site", "lat": 50.7364145, "lon": 15.7401898, "trail_distance": 0.7897175599039016, "trail_elevation": 1596.0}, {"name": "board \u015al\u0105sk\u0105 Drog\u0105 na \u015anie\u017ck\u0119 7: \u015anie\u017cka", "lat": 50.7361947, "lon": 15.7393941, "trail_distance": 0.7897175599039016, "trail_elevation": 1596.0}, {"name": "viewpoint", "lat": 50.7358105, "lon": 15.7398317, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "peak \u015anie\u017cka", "lat": 50.7360326, "lon": 15.7396072, "wikidata": "Q617511", "html": "<div><div><span></span><span>Ten artyku\u0142 dotyczy szczytu. Zobacz te\u017c: inne znaczenia tego s\u0142owa.</span></div><table><caption><style>.mw-parser-output .infobox>caption>.iboxt-flex{display:flex;justify-content:flex-start;align-items:center;gap:4px}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-ikona{flex-grow:0;flex-shrink:0;font-size:7px;max-width:40px;overflow:hidden}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-tekst{flex-grow:1}.mw-parser-output .infobox>caption .iboxt-1{font-weight:bold}.mw-parser-output .infobox>caption .iboxt-2{font-style:italic}.mw-parser-output .infobox>caption .iboxt-3{font-style:italic;font-size:90%}</style><div>\u015anie\u017cka</div></caption><tbody><tr><td><span></span><br>Widok na \u015anie\u017ck\u0119 od strony zachodniej</td></tr><tr><th>Pa\u0144stwo</th><td><p><span><span><span></span></span>&#160;</span>Polska<br><span><span><span></span></span>&#160;</span>Czechy </p></td></tr><tr><th>Po\u0142o\u017cenie</th><td><p>Karpacz (DS)<br>Mal\u00e1 \u00dapa, Pec pod Sn\u011b\u017ekou (KR)</p></td></tr><tr><th>Pasmo</th><td><p>Karkonosze, Sudety</p></td></tr><tr><th>Wysoko\u015b\u0107</th><td><p>1603,3 m n.p.m.</p></td></tr><tr><th>Wybitno\u015b\u0107</th><td><p>1184 m</p></td></tr><tr><td><div><div>Po\u0142o\u017cenie na mapie Sudet\u00f3w</div><div><div><span><span></span></span><div><div><span></span></div><div><span>\u015anie\u017cka</span></div></div></div></div></div></td></tr><tr><td><span><span></span><span><span><span>50\u00b044\u203209,7\u2033N</span>&#160;<span>15\u00b044\u203222,6\u2033E</span></span></span><span>/</span><span><span><span>50,736028</span>&#160;<span>15,739611</span></span></span></span></td></tr><tr><td><table><tbody><tr><td><span></span></td><td>Multimedia w Wikimedia Commons</td></tr></tbody></table></td></tr><tr><td><table><tbody><tr><td><span></span></td><td>Informacje w Wikipodr\u00f3\u017cach</td></tr></tbody></table></td></tr></table><p><b>\u015anie\u017cka</b> (cz.&#160;<em>Sn\u011b\u017eka</em>, niem.&#160;<em>Schneekoppe</em>) \u2013 najwy\u017cszy szczyt Karkonoszy i Sudet\u00f3w, a zarazem Czech, wojew\u00f3dztwa dolno\u015bl\u0105skiego oraz ca\u0142ego \u015al\u0105ska. Jego wysoko\u015b\u0107 wynosi 1603,3 m n.p.m.<sup><span>&#91;</span>1<span>&#93;</span></sup></p><p>Po\u0142o\u017cona na granicy polsko-czeskiej, g\u00f3ruje nad Kotlin\u0105 Jeleniog\u00f3rsk\u0105 (r\u00f3\u017cnica wysoko\u015bci ok. 1200 m). Jest jednym z najwybitniejszych szczyt\u00f3w w Polsce (wybitno\u015b\u0107 1184 m)<sup><span>&#91;</span>2<span>&#93;</span></sup>.</p><p>Na szczycie znajduj\u0105 si\u0119: kaplica \u015bw. Wawrzy\u0144ca z 1681, Wysokog\u00f3rskie Obserwatorium Meteorologiczne im. Tadeusza Ho\u0142dysa (w charakterystycznym budynku w kszta\u0142cie dysk\u00f3w) oraz czeska poczta.</p><h2><span>Geologia i rze\u017aba terenu</span></h2><p>Masyw \u015anie\u017cki zbudowany jest z granitognejs\u00f3w, kt\u00f3re od strony wschodniej i zachodniej kontaktuj\u0105 z granitem karkonoskim. Szczyt pokryty jest go\u0142oborzami, kt\u00f3re powsta\u0142y w wyniku wietrzenia mrozowego.</p><p>Charakterystyczny kszta\u0142t sto\u017cka \u015anie\u017cka zawdzi\u0119cza swojej odporno\u015bci na erozj\u0119. W okresie zlodowace\u0144 by\u0142a nunatakiem, czyli szczytem wystaj\u0105cym ponad l\u0105dol\u00f3d.</p><h2><span>Klimat</span></h2><p>Na \u015anie\u017cce panuje klimat subpolarny, zbli\u017cony do tego na Alasce czy Spitsbergenie. \u015arednia roczna temperatura wynosi 0,4 \u00b0C. Zima trwa od pa\u017adziernika do maja. Wiatry na \u015anie\u017cce osi\u0105gaj\u0105 bardzo du\u017ce pr\u0119dko\u015bci, a najwy\u017csza zanotowana pr\u0119dko\u015b\u0107 wiatru wynios\u0142a 80 m/s (288 km/h)<sup><span>&#91;</span>3<span>&#93;</span></sup>.</p><h2><span>Turystyka</span></h2><p>\u015anie\u017cka jest jednym z najpopularniejszych cel\u00f3w turystycznych w Karkonoszach. Na szczyt prowadzi kilka szlak\u00f3w turystycznych z polskiej i czeskiej strony. Mo\u017cna te\u017c wjecha\u0107 kolej\u0105 gondolow\u0105 z Pecu pod Sn\u011b\u017ekou.</p><h2><span>Przypisy</span></h2><ol><li><span><span><a href=\"#cite_ref-1\">^</a></span> <span><cite>Geoportal</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2017-04-28]</span></span>.</span></li><li><span><span><a href=\"#cite_ref-2\">^</a></span> <span><cite><span>Wybitne szczyty w Polsce</span><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2020-09-25]</span></span></cite>.</span></li><li><span><span><a href=\"#cite_ref-3\">^</a></span> <span><cite><span>Rekordowe wiatry na \u015anie\u017cce</span><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2020-09-25]</span></span></cite>.</span></li></ol></div>", "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "stone", "lat": 50.7362501, "lon": 15.7403198, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "fast_food Bufet na lanovce", "lat": 50.735404, "lon": 15.7403036, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "toilets", "lat": 50.7354316, "lon": 15.7403686, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "map", "lat": 50.7357876, "lon": 15.7394649, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "bench", "lat": 50.7360761, "lon": 15.7397348, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "bench", "lat": 50.7361804, "lon": 15.739724, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "bench", "lat": 50.7361898, "lon": 15.7396715, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "bench", "lat": 50.7361953, "lon": 15.7398005, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "viewpoint", "lat": 50.7359287, "lon": 15.7401543, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "guidepost Sn\u011b\u017eka (lanovka)", "lat": 50.736117, "lon": 15.7400715, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "bench", "lat": 50.7359452, "lon": 15.7394804, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "memorial Dla J\u00f3zefa Odrow\u0105\u017ca-Pieni\u0105\u017cka", "lat": 50.7360849, "lon": 15.7396878, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "stone", "lat": 50.7359431, "lon": 15.739783, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "memorial Adolf Klep\u0161", "lat": 50.7357748, "lon": 15.7396819, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "bench", "lat": 50.7360411, "lon": 15.7390409, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "bench", "lat": 50.7359948, "lon": 15.7392804, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "guidepost Sn\u011b\u017eka", "lat": 50.7359551, "lon": 15.7400574, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "access_point", "lat": 50.7361442, "lon": 15.7401269, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "defibrillator", "lat": 50.7353856, "lon": 15.7403369, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "stone", "lat": 50.7360319, "lon": 15.7394166, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "stone", "lat": 50.7360467, "lon": 15.7399653, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "stone", "lat": 50.7361445, "lon": 15.7401374, "trail_distance": 0.8026120770802119, "trail_elevation": 1597.0}, {"name": "Entry: czarny-szlak-turystyczny-karpacz-bialy-jar-sniezka", "lat": 50.738043, "lon": 15.73139, "trail_distance": 0, "trail_elevation": 1408.0}, {"name": "Entry: droga-przyjazni-polsko-czeskiej", "lat": 50.738043, "lon": 15.73139, "trail_distance": 0, "trail_elevation": 1408.0}];
+            const minLat = 50.736115;
+            const maxLat = 50.738043;
+            const minLon = 15.73139;
+            const maxLon = 15.739531;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const paddingTop = 100;
+            const paddingRight = 0;
+            const paddingBottom = 40;
+            const paddingLeft = 20;
+
+            const maxEle = Math.max(...elevations);
+            const minEle = Math.min(...elevations);
+            const eleRange = maxEle - minEle;
+            const maxDist = distances[distances.length - 1];
+
+            let lastRefreshTime;
+            let gpsStatusMessage = '';
+            let isAutoScrollOn = true;
+
+            const modal = document.getElementById("myModal");
+            const modalBody = document.getElementById("modal-body");
+            const span = document.getElementsByClassName("close")[0];
+
+            window.showModal = function(content) {
+                modalBody.innerHTML = content;
+                modal.style.display = "block";
+            }
+
+            span.onclick = function() {
+                modal.style.display = "none";
+            }
+
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            }
+
+            function getX(distance) {
+                return paddingLeft + (distance / maxDist) * (width - paddingLeft - paddingRight);
+            }
+
+            function getY(elevation) {
+                return height - paddingBottom - ((elevation - minEle) / eleRange) * (height - paddingTop - paddingBottom);
+            }
+
+            function drawProfile() {
+                ctx.clearRect(0, 0, width, height);
+                ctx.strokeStyle = 'black';
+                ctx.fillStyle = 'black';
+                // Draw profile
+                ctx.beginPath();
+                ctx.moveTo(getX(distances[0]), getY(elevations[0]));
+                for (let i = 1; i < elevations.length; i++) {
+                    ctx.lineTo(getX(distances[i]), getY(elevations[i]));
+                }
+                ctx.stroke();
+
+                // Draw axes
+                ctx.beginPath();
+                ctx.moveTo(paddingLeft, paddingTop);
+                ctx.lineTo(paddingLeft, height - paddingBottom);
+                ctx.lineTo(width - paddingRight, height - paddingBottom);
+                ctx.stroke();
+            }
+
+            drawProfile();
+
+            function haversine(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Radius of Earth in kilometers
+                const dLat = (lat2 - lat1) * Math.PI / 180;  // deg2rad below
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = 
+                    0.5 - Math.cos(dLat)/2 + 
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    (1 - Math.cos(dLon))/2;
+
+                return R * 2 * Math.asin(Math.sqrt(a));
+            }
+
+            function calculateBearing(startLat, startLng, destLat, destLng) {
+              // Convert degrees to radians
+              const toRadians = (degrees) => degrees * Math.PI / 180;
+              const toDegrees = (radians) => radians * 180 / Math.PI;
+
+              const startLatRad = toRadians(startLat);
+              const startLngRad = toRadians(startLng);
+              const destLatRad = toRadians(destLat);
+              const destLngRad = toRadians(destLng);
+
+              // Calculate the difference in longitude
+              const deltaLng = destLngRad - startLngRad;
+
+              // Calculate the bearing
+              const y = Math.sin(deltaLng) * Math.cos(destLatRad);
+              const x = Math.cos(startLatRad) * Math.sin(destLatRad) -
+                        Math.sin(startLatRad) * Math.cos(destLatRad) * Math.cos(deltaLng);
+              let bearing = Math.atan2(y, x);
+
+              // Convert the bearing from radians to degrees
+              bearing = toDegrees(bearing);
+
+              // Ensure the bearing is a positive number between 0 and 360
+              return (bearing + 360) % 360;
+            }
+
+            function getBearingArrow(bearing) {
+                if (bearing >= 337.5 || bearing < 22.5) {
+                    return '↑'; // North
+                } else if (bearing >= 22.5 && bearing < 67.5) {
+                    return '↗'; // North-East
+                } else if (bearing >= 67.5 && bearing < 112.5) {
+                    return '→'; // East
+                } else if (bearing >= 112.5 && bearing < 157.5) {
+                    return '↘'; // South-East
+                } else if (bearing >= 157.5 && bearing < 202.5) {
+                    return '↓'; // South
+                } else if (bearing >= 202.5 && bearing < 247.5) {
+                    return '↙'; // South-West
+                } else if (bearing >= 247.5 && bearing < 292.5) {
+                    return '←'; // West
+                } else if (bearing >= 292.5 && bearing < 337.5) {
+                    return '↖'; // North-West
+                }
+                return ''; // Should not happen
+            }
+
+            function aggregateTableRows() {
+                const tableBody = document.querySelector('#itineraryTable tbody');
+                if (!tableBody) return;
+
+                // First, reset any previous aggregation by making all rows visible and removing old counts
+                const rows = Array.from(tableBody.querySelectorAll('tr'));
+                rows.forEach(row => {
+                    row.style.display = '';
+                    if (row.cells.length > 2) {
+                        const pointCell = row.cells[2];
+                        // Use a regex to remove ' xN' from the end of the innerHTML
+                        pointCell.innerHTML = pointCell.innerHTML.replace(/ x[0-9]+$/, '');
+                    }
+                });
+
+                let lastVisibleRow = null;
+                let consecutiveCount = 1;
+
+                for (let i = 0; i < rows.length; i++) {
+                    const currentRow = rows[i];
+                    if (currentRow.cells.length <= 2) {
+                        continue;
+                    }
+                    // Skip rows that are already hidden (shouldn't happen with reset, but good practice)
+                    if (currentRow.style.display === 'none') {
+                        continue;
+                    }
+
+                    if (lastVisibleRow && lastVisibleRow.cells.length > 2 && lastVisibleRow.cells[2].innerText.trim() === currentRow.cells[2].innerText.trim()) {
+                        consecutiveCount++;
+                        currentRow.style.display = 'none'; // Hide consecutive same row
+                    } else {
+                        // If we just finished a sequence of consecutive rows, update the count on the last visible one.
+                        if (consecutiveCount > 1 && lastVisibleRow && lastVisibleRow.cells.length > 2) {
+                            lastVisibleRow.cells[2].innerHTML += ` x${consecutiveCount}`;
+                        }
+                        // Start a new sequence.
+                        lastVisibleRow = currentRow;
+                        consecutiveCount = 1;
+                    }
+                }
+
+                // After the loop, check if the very last rows were a consecutive sequence.
+                if (consecutiveCount > 1 && lastVisibleRow && lastVisibleRow.cells.length > 2) {
+                    lastVisibleRow.cells[2].innerHTML += ` x${consecutiveCount}`;
+                }
+            }
+
+            function sortTable() {
+                const tableBody = document.querySelector('#itineraryTable tbody');
+                const rows = Array.from(tableBody.children);
+
+                rows.sort((a, b) => {
+                    const distanceA = parseFloat(a.cells[0].textContent.trim());
+                    const distanceB = parseFloat(b.cells[0].textContent.trim());
+
+                    if (isNaN(distanceA) && isNaN(distanceB)) return 0; // Both NaN, keep original order
+                    if (isNaN(distanceA)) return 1; // A is NaN, B is a number, put A at the end
+                    if (isNaN(distanceB)) return -1; // B is NaN, A is a number, put B at the end
+
+                    return distanceA - distanceB;
+                });
+
+                while (tableBody.firstChild) {
+                    tableBody.removeChild(tableBody.firstChild);
+                }
+                rows.forEach(row => tableBody.appendChild(row));
+            }
+
+            function updateStaticTable() {
+                const maxEleIndex = elevations.indexOf(maxEle);
+                const maxEleDistance = distances[maxEleIndex];
+
+                document.getElementById('startDistance').innerText = distances[0].toFixed(1);
+                document.getElementById('startHeight').innerText = elevations[0].toFixed(0);
+
+                document.getElementById('highestPointDistance').innerText = maxEleDistance.toFixed(1);
+                document.getElementById('highestPointHeight').innerText = maxEle.toFixed(0);
+
+                document.getElementById('finishDistance').innerText = maxDist.toFixed(1);
+                document.getElementById('finishHeight').innerText = elevations[elevations.length - 1].toFixed(0);
+
+                document.getElementById('startLat').innerText = lats[0].toFixed(5);
+                document.getElementById('startLon').innerText = lons[0].toFixed(5);
+                document.getElementById('startLink').href = `geo:${lats[0]},${lons[0]}`;
+
+                document.getElementById('highestPointLat').innerText = lats[maxEleIndex].toFixed(5);
+                document.getElementById('highestPointLon').innerText = lons[maxEleIndex].toFixed(5);
+                document.getElementById('highestPointLink').href = `geo:${lats[maxEleIndex]},${lons[maxEleIndex]}`;
+
+                document.getElementById('finishLat').innerText = lats[lats.length - 1].toFixed(5);
+                document.getElementById('finishLon').innerText = lons[lons.length - 1].toFixed(5);
+                document.getElementById('finishLink').href = `geo:${lats[lats.length - 1]},${lons[lons.length - 1]}`;
+                sortTable();
+                aggregateTableRows();
+            }
+
+            function formatTimeAgo(date) {
+                const seconds = Math.floor((new Date() - date) / 1000);
+                let interval = seconds / 31536000;
+                if (interval > 1) {
+                    return Math.floor(interval) + " years ago";
+                }
+                interval = seconds / 2592000;
+                if (interval > 1) {
+                    return Math.floor(interval) + " months ago";
+                }
+                interval = seconds / 86400;
+                if (interval > 1) {
+                    return Math.floor(interval) + " days ago";
+                }
+                interval = seconds / 3600;
+                if (interval > 1) {
+                    return Math.floor(interval) + " hours ago";
+                }
+                interval = seconds / 60;
+                if (interval > 1) {
+                    return Math.floor(interval) + " minutes ago";
+                }
+                return Math.floor(seconds) + " seconds ago";
+            }
+
+            function refreshLocation() {
+                let dots = 0;
+                const interval = setInterval(() => {
+                    dots = (dots + 1) % 4;
+                    gpsStatusMessage = ".".repeat(dots);
+                }, 500);
+
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(position => {
+                        clearInterval(interval);
+                        lastRefreshTime = new Date();
+                        const userLat = position.coords.latitude;
+                        const userLon = position.coords.longitude;
+                        gpsStatusMessage = `Lat: ${userLat.toFixed(5)}, Lon: ${userLon.toFixed(5)}`;
+        
+                        console.log('User Location:', userLat, userLon);
+        
+                        let nearestIndex = 0;
+                        let minDistance = Infinity;
+                        for (let i = 0; i < lats.length; i++) {
+                            const dist = haversine(userLat, userLon, lats[i], lons[i]);
+                            if (dist < minDistance) {
+                                minDistance = dist;
+                                nearestIndex = i;
+                            }
+                        }
+                        console.log('Nearest Index:', nearestIndex, 'Min Distance:', minDistance);
+                        updateMapAndTable(nearestIndex, userLat, userLon);
+                    }, error => {
+                        clearInterval(interval);
+                        gpsStatusMessage = 'NOPE';
+                        console.error('Error getting user location:', error);
+                    });
+                } else {
+                    clearInterval(interval);
+                    gpsStatusMessage = 'NOPE';
+                    console.error('Geolocation is not supported by this browser.');
+                }
+            }
+
+            updateStaticTable();
+            refreshLocation();
+            setInterval(refreshLocation, 20000);
+
+            document.getElementById('autoScrollToggle').addEventListener('change', function() {
+                isAutoScrollOn = this.checked;
+            });
+
+            setInterval(() => {
+                if (lastRefreshTime) {
+                    document.getElementById('gpsStatus').innerText = `${gpsStatusMessage} (${formatTimeAgo(lastRefreshTime)})`
+                } else {
+                    document.getElementById('gpsStatus').innerText = gpsStatusMessage;
+                }
+            }, 1000);
+
+            function updateMapAndTable(nearestIndex, actualLat, actualLon) {
+                drawProfile();
+                document.getElementById('currentPositionRow').style.display = '';
+                console.log('Nearest Index:', nearestIndex);
+
+                // Draw current position line
+                const currentX = getX(distances[nearestIndex]);
+                ctx.beginPath();
+                ctx.strokeStyle = 'red';
+                ctx.moveTo(currentX, paddingTop);
+                ctx.lineTo(currentX, height - paddingBottom);
+                ctx.stroke();
+
+                // Draw info on top of the line
+                const currentDist = distances[nearestIndex];
+                const percentage = (currentDist / maxDist) * 100;
+                const ele = elevations[nearestIndex];
+                ctx.fillStyle = 'red';
+                ctx.font = '70px Arial'; // Set a much bigger font for current position info
+
+                let textX = currentX;
+                if (currentX < paddingLeft + 50) {
+                    ctx.textAlign = 'left';
+                    textX = paddingLeft;
+                } else if (currentX > width - paddingRight - 50) {
+                    ctx.textAlign = 'right';
+                    textX = width - paddingRight;
+                } else {
+                    ctx.textAlign = 'center';
+                }
+
+                
+                ctx.fillText(percentage.toFixed(0) + '%', textX, paddingTop - 5);
+
+                ctx.strokeStyle = 'black';
+                ctx.fillStyle = 'black';
+
+                const tableBody = document.querySelector('#itineraryTable tbody');
+
+                document.getElementById('currentDistance').innerText = currentDist.toFixed(1);
+                document.getElementById('currentHeight').innerText = ele.toFixed(0);
+                document.getElementById('currentLat').innerText = lats[nearestIndex].toFixed(5);
+                document.getElementById('currentLon').innerText = lons[nearestIndex].toFixed(5);
+                document.getElementById('currentLink').href = `geo:${actualLat},${actualLon}`;
+
+                const maxEleIndex = elevations.indexOf(maxEle);
+
+                const currentLat = actualLat;
+                const currentLon = actualLon;
+
+                const startBearing = calculateBearing(currentLat, currentLon, lats[0], lons[0]);
+                const highestPointBearing = calculateBearing(currentLat, currentLon, lats[maxEleIndex], lons[maxEleIndex]);
+                const finishBearing = calculateBearing(currentLat, currentLon, lats[lats.length - 1], lons[lats.length - 1]);
+
+                document.getElementById('startDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[0], lons[0]).toFixed(2) + ' km ' + getBearingArrow(startBearing);
+                document.getElementById('currentDistFromCurrent').innerText = '';
+                document.getElementById('highestPointDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[maxEleIndex], lons[maxEleIndex]).toFixed(2) + ' km ' + getBearingArrow(highestPointBearing);
+                document.getElementById('finishDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[lats.length - 1], lons[lats.length - 1]).toFixed(2) + ' km ' + getBearingArrow(finishBearing);
+
+                importantPointsData.forEach((point, index) => {
+                    const dist = haversine(currentLat, currentLon, point.lat, point.lon);
+                    const bearing = calculateBearing(currentLat, currentLon, point.lat, point.lon);
+                    document.getElementById(`importantPointDistFromCurrent_${index}`).innerText = dist.toFixed(2) + ' km ' + getBearingArrow(bearing);
+                });
+
+                sortTable();
+                aggregateTableRows();
+
+                // Scroll to current position
+                const tableContainer = document.getElementById('tableContainer');
+                const currentPositionRow = document.getElementById('currentDistance').closest('tr'); // Find the parent <tr>
+
+                if (tableContainer && currentPositionRow) {
+                    if (isAutoScrollOn) {
+                        currentPositionRow.scrollIntoView({ block: "center" });
+                    }
+                    currentPositionRow.classList.add('current-position-row');
+                }
+            }
+            // Calculate remaining height for tableContainer
+            const canvasHeight = document.getElementById('profileCanvas').offsetHeight;
+
+            const totalOccupiedHeight = canvasHeight;
+            const windowHeight = window.innerHeight;
+            const remainingHeight = windowHeight - totalOccupiedHeight - 25;
+
+            if (tableContainer) {
+                tableContainer.style.height = `${remainingHeight}px`;
+            }
+    });
+    </script>
+    <div id="tableContainer" style="height: 200px; overflow-y: scroll;">
+        <table border="1" width="100%" id="itineraryTable">
+            <thead>
+                <tr>
+                    <th>Distance (km)</th>
+                    <th>Height (m)</th>
+                    <th>Point</th>
+                    <th>Lat</th>
+                    <th>Lon</th>
+                    <th>From Current (km)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td id="startDistance"></td>
+                    <td id="startHeight"></td>
+                    <td><a id="startLink" href="">START</a></td>
+                    <td id="startLat"></td>
+                    <td id="startLon"></td>
+                    <td id="startDistFromCurrent"></td>
+                </tr>
+                <tr id="currentPositionRow" style="display: none;">
+                    <td id="currentDistance"></td>
+                    <td id="currentHeight"></td>
+                    <td><a id="currentLink" href="">Current Position</a></td>
+                    <td id="currentLat"></td>
+                    <td id="currentLon"></td>
+                    <td id="currentDistFromCurrent"></td>
+                </tr>
+                <tr>
+                    <td id="highestPointDistance"></td>
+                    <td id="highestPointHeight"></td>
+                    <td><a id="highestPointLink" href="">Highest Point</a></td>
+                    <td id="highestPointLat"></td>
+                    <td id="highestPointLon"></td>
+                    <td id="highestPointDistFromCurrent"></td>
+                </tr>
+                <tr>
+                    <td id="finishDistance"></td>
+                    <td id="finishHeight"></td>
+                    <td><a id="finishLink" href="">FINISH</a></td>
+                    <td id="finishLat"></td>
+                    <td id="finishLon"></td>
+                    <td id="finishDistFromCurrent"></td>
+                </tr>
+                
+                <tr>
+                    <td>0.0</td>
+                    <td>1408</td>
+                    <td><a href="geo:50.7426063,15.7323472">waterfall Wodospad Łomniczki</a></td>
+                    <td>50.7426063</td>
+                    <td>15.7323472</td>
+                    <td id="importantPointDistFromCurrent_0"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>1408</td>
+                    <td><a href="geo:50.7387514,15.7288156">viewpoint</a></td>
+                    <td>50.7387514</td>
+                    <td>15.7288156</td>
+                    <td id="importantPointDistFromCurrent_1"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>1408</td>
+                    <td><a href="#" onclick='window.showModal("<div><table><caption><style>.mw-parser-output .infobox>caption>.iboxt-flex{display:flex;justify-content:flex-start;align-items:center;gap:4px}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-ikona{flex-grow:0;flex-shrink:0;font-size:7px;max-width:40px;overflow:hidden}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-tekst{flex-grow:1}.mw-parser-output .infobox>caption .iboxt-1{font-weight:bold}.mw-parser-output .infobox>caption .iboxt-2{font-style:italic}.mw-parser-output .infobox>caption .iboxt-3{font-style:italic;font-size:90%}</style><div>Kopa</div></caption><tbody><tr><td><span></span><br>Kopa</td></tr><tr><th>Pa\u0144stwo</th><td><p><span><span><span></span></span>&#160;</span>Polska</p></td></tr><tr><th>Po\u0142o\u017cenie</th><td><p>powiat karkonoski</p></td></tr><tr><th>Pasmo</th><td><p>Sudety,<br>Karkonosze,<br>\u015al\u0105ski Grzbiet</p></td></tr><tr><th>Wysoko\u015b\u0107</th><td><p>1378 m n.p.m.</p></td></tr><tr><td><div><div>Po\u0142o\u017cenie na mapie Sudet\u00f3w</div><div><div><span><span></span></span><div><div><span></span></div><div><span>Kopa</span></div></div></div></div></div></td></tr><tr><td><span><span></span><span><span><span>50\u00b044\u203247,91\u2033N</span>&#160;<span>15\u00b043\u203249,14\u2033E</span></span></span><span>/</span><span><span><span>50,746642</span>&#160;<span>15,730317</span></span></span></span></td></tr><tr><td><table><tbody><tr><td><span></span></td><td>Multimedia w Wikimedia Commons</td></tr></tbody></table></td></tr></table><p><b>Kopa</b>, Czarna Kopa lub Ma\u0142a Kopa (niem.&#160;<em>Kleine Koppe</em>, ok. 1378 m n.p.m.<sup><span>&#91;</span>1<span>&#93;</span></sup>) \u2013 szczyt w Karkonoszach. Poni\u017cej szczytu znajduje si\u0119 punkt pomiarowy 1377,4, co powoduje, \u017ce wi\u0119kszo\u015b\u0107 map i przewodnik\u00f3w podaje wysoko\u015b\u0107 1377 (zob. np.<sup><span>&#91;</span>2<span>&#93;</span></sup><sup><span>&#91;</span>3<span>&#93;</span></sup>).</p><p>Po\u0142o\u017cony jest w g\u0142\u00f3wnym grzbiecie Karkonoszy (\u015al\u0105skim Grzbiecie) pomi\u0119dzy \u015anie\u017ck\u0105 (1603 m n.p.m.) a Smogorni\u0105 (1490 m n.p.m.)<sup><span>&#91;</span>2<span>&#93;</span></sup>. Od wschodu Kop\u0119 od Czarnego Grzbietu oddziela Prze\u0142\u0119cz pod \u015anie\u017ck\u0105 (1394 m n.p.m.), a od zachodu Czarny Grzbiet od \u015anie\u017cki oddziela Czarna Prze\u0142\u0119cz (1348 m n.p.m.)<sup><span>&#91;</span>2<span>&#93;</span></sup>.</p><p>Partia szczytowa i stoki Kopy zbudowane s\u0105 z granitu karkonoskiego<sup><span>&#91;</span>2<span>&#93;</span></sup>. Na stoku p\u00f3\u0142nocnym (po stronie polskiej) znajduje si\u0119 nisza niwalna Kocio\u0142 \u0141omniczki, a na stoku po\u0142udniowym (po stronie czeskiej) znajduj\u0105 si\u0119 \u017ar\u00f3d\u0142a rzeki Upy<sup><span>&#91;</span>2<span>&#93;</span></sup>.</p><p>Szczyt jest dobrym punktem widokowym na Karkonosze, Kotlin\u0119 Jeleniog\u00f3rsk\u0105, Rudawy Janowickie i G\u00f3ry Kaczawskie<sup><span>&#91;</span>2<span>&#93;</span></sup>. Przez Kop\u0119 przechodzi g\u0142\u00f3wny (czerwony) szlak turystyczny (Droga Przyja\u017ani Polsko-Czeskiej) z Szklarskiej Por\u0119by na Prze\u0142\u0119cz Okraj<sup><span>&#91;</span>4<span>&#93;</span></sup>.</p><h2><span>Szlaki turystyczne</span></h2><p>Przez Kop\u0119 przechodz\u0105 nast\u0119puj\u0105ce szlaki<sup><span>&#91;</span>5<span>&#93;</span></sup>:</p><ul><li><span></span> G\u0142\u00f3wny Szlak Sudecki: Szklarska Por\u0119ba - Szrenica - Prze\u0142\u0119cz Karkonoska - Kopa - \u015anie\u017cka - Prze\u0142\u0119cz Okraj</li></ul><h2><span>Zobacz te\u017c</span></h2><ul><li>Kopa nad Moren\u0105</li></ul><h2><span>Przypisy</span></h2><ol><li><span><span><a href=\"#cite_ref-1\">^</a></span> <span><cite>Geoportal</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2017-04-28]</span></span>.</span></li><li><span>^ <sup><span>a</span></sup> <sup><span>b</span></sup> <sup><span>c</span></sup> <sup><span>d</span></sup> <sup><span>e</span></sup> <sup><span>f</span></sup></span> <span><cite>S\u0142ownik geografii turystycznej Sudet\u00f3w</cite>. red. Marek Staffa. T. 3: Karkonosze. Warszawa \u2013 Krak\u00f3w: Wydawnictwo PTTK \u201eKraj\u201d, 1993. <span title=\"Mi\u0119dzynarodowy Znormalizowany Numer Ksi\u0105\u017cki\">ISBN</span>&#160;83-7005-168-5.</span></li><li><span><span><a href=\"#cite_ref-3\">^</a></span> <span><cite>Mapa szlak\u00f3w turystycznych</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2017-11-24]</span></span>.</span></li><li><span><span><a href=\"#cite_ref-4\">^</a></span> <span><cite>Mapa turystyczna</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2018-05-08]</span></span>.</span></li><li><span><span><a href=\"#cite_ref-5\">^</a></span> <span><cite>Mapa szlak\u00f3w turystycznych</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2017-11-24]</span></span>.</span></li></ol></div>")'>&#x1F4D6;</a> <a href="geo:50.7466406,15.7303155">peak Kopa</a></td>
+                    <td>50.7466406</td>
+                    <td>15.7303155</td>
+                    <td id="importantPointDistFromCurrent_2"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>1408</td>
+                    <td><a href="geo:50.7395813,15.7288154">toilets</a></td>
+                    <td>50.7395813</td>
+                    <td>15.7288154</td>
+                    <td id="importantPointDistFromCurrent_3"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>1408</td>
+                    <td><a href="geo:50.7380538,15.7312471">board Odnowa w środowisku - 'Czarny Trójkat' nabiera kolorów</a></td>
+                    <td>50.7380538</td>
+                    <td>15.7312471</td>
+                    <td id="importantPointDistFromCurrent_4"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>1408</td>
+                    <td><a href="geo:50.7394988,15.7289792">defibrillator</a></td>
+                    <td>50.7394988</td>
+                    <td>15.7289792</td>
+                    <td id="importantPointDistFromCurrent_5"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>1408</td>
+                    <td><a href="geo:50.7394814,15.7288465">defibrillator</a></td>
+                    <td>50.7394814</td>
+                    <td>15.7288465</td>
+                    <td id="importantPointDistFromCurrent_6"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>1408</td>
+                    <td><a href="geo:50.7380667,15.7313486">access_point</a></td>
+                    <td>50.7380667</td>
+                    <td>15.7313486</td>
+                    <td id="importantPointDistFromCurrent_7"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>1408</td>
+                    <td><a href="#" onclick='window.showModal("<div><div><span></span><span>Ten artyku\u0142 dotyczy schroniska w Karkonoszach. Zobacz te\u017c: Hotel g\u00f3rski \u201e\u015al\u0105ski Dom\u201d w Tatrach Wysokich.</span></div><table><caption><style>.mw-parser-output .infobox>caption>.iboxt-flex{display:flex;justify-content:flex-start;align-items:center;gap:4px}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-ikona{flex-grow:0;flex-shrink:0;font-size:7px;max-width:40px;overflow:hidden}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-tekst{flex-grow:1}.mw-parser-output .infobox>caption .iboxt-1{font-weight:bold}.mw-parser-output .infobox>caption .iboxt-2{font-style:italic}.mw-parser-output .infobox>caption .iboxt-3{font-style:italic;font-size:90%}</style><div>Schronisko G\u00f3rskie \u201eDom \u015al\u0105ski\u201d</div></caption><tbody><tr><td><span></span><br>Dom \u015al\u0105ski</td></tr><tr><th>Pa\u0144stwo</th><td><p><span><span><span></span></span>&#160;</span>Polska</p></td></tr><tr><th>Pasmo</th><td><p>Karkonosze, Sudety</p></td></tr><tr><th>Wysoko\u015b\u0107</th><td><p>1400 m n.p.m.</p></td></tr><tr><th>Data otwarcia</th><td><p>1922</p></td></tr><tr><td><div><div>Po\u0142o\u017cenie na mapie Sudet\u00f3w</div><div><div><span><span></span></span><div><div><span></span></div><div><span>Schronisko G\u00f3rskie \u201eDom \u015al\u0105ski\u201d</span></div></div></div></div></div></td></tr><tr><td><span><span></span><span><span><span>50\u00b044\u203222,21\u2033N</span>&#160;<span>15\u00b043\u203244,37\u2033E</span></span></span><span>/</span><span><span><span>50,739503</span>&#160;<span>15,728992</span></span></span></span></td></tr><tr><td><table><tbody><tr><td><span></span></td><td>Multimedia w Wikimedia Commons</td></tr></tbody></table></td></tr><tr><td>Strona internetowa</td></tr></tbody></table><figure><figcaption>Widok od zachodu</figcaption></figure><figure><figcaption>Widok od wschodu</figcaption></figure><figure><figcaption>Schronisko na tle \u015anie\u017cki</figcaption></figure><p><b>Schronisko G\u00f3rskie \u201eDom \u015al\u0105ski\u201d</b> (niem. <em>Schlesierhaus</em>) \u2013 schronisko turystyczne w Karkonoszach, po\u0142o\u017cone na Prze\u0142\u0119czy pod \u015anie\u017ck\u0105, na wysoko\u015bci 1400 m n.p.m.<sup><span>&#91;</span>1<span>&#93;</span></sup>, na terenie Polski, w granicach administracyjnych Karpacza.</p><p>Obiekt znajduje si\u0119 na R\u00f3wni pod \u015anie\u017ck\u0105, u podn\u00f3\u017ca \u015anie\u017cki, przy granicy polsko-czeskiej (w przesz\u0142o\u015bci na styku granic Czech, \u015al\u0105ska i \u0141u\u017cyc). Jest wa\u017cnym w\u0119z\u0142em szlak\u00f3w turystycznych po obu stronach granicy. Do schroniska mo\u017cna dotrze\u0107 G\u0142\u00f3wnym Szlakiem Sudeckim z R\u00f3wni pod \u015anie\u017ck\u0105 lub z Prze\u0142\u0119czy Okraj. Jest najwy\u017cej po\u0142o\u017conym schroniskiem w Karkonoszach i w Sudetach po polskiej stronie.</p><h2><span>Historia</span></h2><h3><span>Dawne obserwatoria</span></h3><p>Pierwszy budynek w tym miejscu powsta\u0142 w 1847 z inicjatywy Johanna Adolfa Bergera z P\u0142\u00f3czek Dolnych ko\u0142o Lw\u00f3wka \u015al\u0105skiego, kt\u00f3ry wydzier\u017cawi\u0142 parcel\u0119 od hrabiego von Schaffgotscha. By\u0142o to prymitywne schronisko z cz\u0119\u015bci\u0105 gastronomiczn\u0105 i noclegow\u0105 (15 miejsc). Nosi\u0142o nazw\u0119 <em>Heldmannbaude</em>. W 1888 sp\u0142on\u0119\u0142o. W 1896 powsta\u0142 nowy, wi\u0119kszy obiekt, kt\u00f3ry jednak sp\u0142on\u0105\u0142 w 1901. W 1904 postawiono nowy, murowany budynek, kt\u00f3ry w 1922 zosta\u0142 rozbudowany i w tej formie istnieje do dzi\u015b. W\u0142a\u015bcicielem by\u0142 Franz Krauss. Schronisko dysponowa\u0142o 60 miejscami noclegowymi. W 1923 dobudowano werand\u0119. Po 1945 schronisko przej\u0119\u0142o PTT, a od 1951 PTTK. W 1950 obiekt otrzyma\u0142 nazw\u0119 \u201eDom \u015al\u0105ski\u201d i imi\u0119 Bronis\u0142awa Czecha, ale ostatecznie patrona usuni\u0119to. W latach 1982\u20131992 w schronisku mie\u015bci\u0142a si\u0119 stra\u017cnica Wojsk Ochrony Pogranicza, a PTTK by\u0142o tylko dzier\u017cawc\u0105 cz\u0119\u015bci pomieszcze\u0144. Obecnie schronisko jest w\u0142asno\u015bci\u0105 prywatn\u0105.</p><h2><span>Szlaki turystyczne</span></h2><p>W pobli\u017cu schroniska znajduje si\u0119 w\u0119ze\u0142 szlak\u00f3w turystycznych<sup><span>&#91;</span>2<span>&#93;</span></sup>:</p><ul><li><span></span> \u2013 niebieski szlak z Karpacza przez Bia\u0142y Jar na \u015anie\u017ck\u0119,</li><li><span></span> \u2013 czerwony fragment G\u0142\u00f3wnego Szlaku Sudeckiego z Prze\u0142\u0119czy Karkonoskiej do Karpacza,</li><li><span></span> \u2013 czarny szlak na \u015anie\u017ck\u0119 (zwany \u201eDrog\u0105 Przyja\u017ani\u201d),</li><li><span></span> \u2013 \u017c\u00f3\u0142ty szlak do schroniska PTTK \u201eStrzecha Akademicka\u201d,</li><li>po stronie czeskiej:</li><li><span></span> \u2013 niebieski szlak do schroniska <i>Lu\u010dn\u00ed bouda</i>,</li><li><span></span> \u2013 \u017c\u00f3\u0142ty szlak do miejscowo\u015bci Pec pod Sn\u011b\u017ekou.</li></ul><h2><span>Przypisy</span></h2><ol><li><span><span><a href=\"#cite_ref-1\">^</a></span> <span><cite>Geoportal</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2017-04-28]</span></span>.</span></li><li><span><span><a href=\"#cite_ref-2\">^</a></span> <span><cite>Mapa szlak\u00f3w turystycznych</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2020-09-25]</span></span>.</span></li></ol><h2><span>Bibliografia</span></h2><ul><li> <i>S\u0142ownik geografii turystycznej Sudet\u00f3w</i>, t. 3 Karkonosze, red. Marek Staffa, Wydawnictwo PTTK \u201eKraj\u201d, Warszawa \u2013 Krak\u00f3w 1993, <span title=\"Mi\u0119dzynarodowy Znormalizowany Numer Ksi\u0105\u017cki\">ISBN</span>&#160;83-7005-168-5.</li><li> Mapa turystyczna Karkonosze polskie i czeskie 1:25 000, Wydawnictwo \u201ePlan\u201d, Jelenia G\u00f3ra, <span title=\"Mi\u0119dzynarodowy Znormalizowany Numer Ksi\u0105\u017cki\">ISBN</span>&#160;83-88049-26-7.</li></ul><div><br></div></div>")'>&#x1F4D6;</a> <a href="geo:50.739515572222224,15.728952672222224">alpine_hut Dom Śląski</a></td>
+                    <td>50.739515572222224</td>
+                    <td>15.728952672222224</td>
+                    <td id="importantPointDistFromCurrent_8"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>1409</td>
+                    <td><a href="geo:50.7363425,15.7243939">waterfall Vodopád Úpičky</a></td>
+                    <td>50.7363425</td>
+                    <td>15.7243939</td>
+                    <td id="importantPointDistFromCurrent_9"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>1411</td>
+                    <td><a href="geo:50.7328879,15.7217214">waterfall Lavinový vodopád</a></td>
+                    <td>50.7328879</td>
+                    <td>15.7217214</td>
+                    <td id="importantPointDistFromCurrent_10"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>1477</td>
+                    <td><a href="geo:50.7361115,15.7342221">viewpoint</a></td>
+                    <td>50.7361115</td>
+                    <td>15.7342221</td>
+                    <td id="importantPointDistFromCurrent_11"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>1477</td>
+                    <td><a href="geo:50.7306509,15.7269952">waterfall Dolní Úpský vodopád</a></td>
+                    <td>50.7306509</td>
+                    <td>15.7269952</td>
+                    <td id="importantPointDistFromCurrent_12"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>1477</td>
+                    <td><a href="geo:50.730417472727275,15.726579363636365">valley Úpská jáma</a></td>
+                    <td>50.730417472727275</td>
+                    <td>15.726579363636365</td>
+                    <td id="importantPointDistFromCurrent_13"></td>
+                </tr>
+                <tr>
+                    <td>0.4</td>
+                    <td>1478</td>
+                    <td><a href="geo:50.7324051,15.7327833">waterfall Vodopády Rudného potoka</a></td>
+                    <td>50.7324051</td>
+                    <td>15.7327833</td>
+                    <td id="importantPointDistFromCurrent_14"></td>
+                </tr>
+                <tr>
+                    <td>0.5</td>
+                    <td>1507</td>
+                    <td><a href="geo:50.7361467,15.7355784">viewpoint</a></td>
+                    <td>50.7361467</td>
+                    <td>15.7355784</td>
+                    <td id="importantPointDistFromCurrent_15"></td>
+                </tr>
+                <tr>
+                    <td>0.6</td>
+                    <td>1551</td>
+                    <td><a href="geo:50.7364086,15.7372914">memorial Jan Messner a Štefan Spusta</a></td>
+                    <td>50.7364086</td>
+                    <td>15.7372914</td>
+                    <td id="importantPointDistFromCurrent_16"></td>
+                </tr>
+                <tr>
+                    <td>0.6</td>
+                    <td>1551</td>
+                    <td><a href="geo:50.7364085,15.7373009">wayside_cross</a></td>
+                    <td>50.7364085</td>
+                    <td>15.7373009</td>
+                    <td id="importantPointDistFromCurrent_17"></td>
+                </tr>
+                <tr>
+                    <td>0.7</td>
+                    <td>1566</td>
+                    <td><a href="geo:50.73603889361702,15.737752923404255">cliff Obří důl</a></td>
+                    <td>50.73603889361702</td>
+                    <td>15.737752923404255</td>
+                    <td id="importantPointDistFromCurrent_18"></td>
+                </tr>
+                <tr>
+                    <td>0.7</td>
+                    <td>1587</td>
+                    <td><a href="geo:50.7360302,15.7387823">viewpoint</a></td>
+                    <td>50.7360302</td>
+                    <td>15.7387823</td>
+                    <td id="importantPointDistFromCurrent_19"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1589</td>
+                    <td><a href="geo:50.7361053,15.7389759">bench</a></td>
+                    <td>50.7361053</td>
+                    <td>15.7389759</td>
+                    <td id="importantPointDistFromCurrent_20"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1595</td>
+                    <td><a href="geo:50.7363687,15.7394005">viewpoint</a></td>
+                    <td>50.7363687</td>
+                    <td>15.7394005</td>
+                    <td id="importantPointDistFromCurrent_21"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7365714,15.7398808">viewpoint</a></td>
+                    <td>50.7365714</td>
+                    <td>15.7398808</td>
+                    <td id="importantPointDistFromCurrent_22"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7364474,15.7402425">bench</a></td>
+                    <td>50.7364474</td>
+                    <td>15.7402425</td>
+                    <td id="importantPointDistFromCurrent_23"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7364537,15.7401163">bench</a></td>
+                    <td>50.7364537</td>
+                    <td>15.7401163</td>
+                    <td id="importantPointDistFromCurrent_24"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7364553,15.7401723">bench</a></td>
+                    <td>50.7364553</td>
+                    <td>15.7401723</td>
+                    <td id="importantPointDistFromCurrent_25"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7365457,15.7398797">picnic_site</a></td>
+                    <td>50.7365457</td>
+                    <td>15.7398797</td>
+                    <td id="importantPointDistFromCurrent_26"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.736554,15.7399189">bench</a></td>
+                    <td>50.736554</td>
+                    <td>15.7399189</td>
+                    <td id="importantPointDistFromCurrent_27"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7365722,15.7398107">bench</a></td>
+                    <td>50.7365722</td>
+                    <td>15.7398107</td>
+                    <td id="importantPointDistFromCurrent_28"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7365728,15.7398535">bench</a></td>
+                    <td>50.7365728</td>
+                    <td>15.7398535</td>
+                    <td id="importantPointDistFromCurrent_29"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7363055,15.7395391">memorial 45 lat ludowego wojska polskiego</a></td>
+                    <td>50.7363055</td>
+                    <td>15.7395391</td>
+                    <td id="importantPointDistFromCurrent_30"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7364144,15.7400535">waste_basket</a></td>
+                    <td>50.7364144</td>
+                    <td>15.7400535</td>
+                    <td id="importantPointDistFromCurrent_31"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="#" onclick='window.showModal("<div><table><caption><style>.mw-parser-output .infobox>caption>.iboxt-flex{display:flex;justify-content:flex-start;align-items:center;gap:4px}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-ikona{flex-grow:0;flex-shrink:0;font-size:7px;max-width:40px;overflow:hidden}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-tekst{flex-grow:1}.mw-parser-output .infobox>caption .iboxt-1{font-weight:bold}.mw-parser-output .infobox>caption .iboxt-2{font-style:italic}.mw-parser-output .infobox>caption .iboxt-3{font-style:italic;font-size:90%}</style><div>Wysokog\u00f3rskie Obserwatorium Meteorologiczne im. Tadeusza Ho\u0142dysa na \u015anie\u017cce</div></caption><tbody><tr><td><span><span></span></span> nr rej. A/6174 z 8.06.2020<sup><span>&#91;</span>1<span>&#93;</span></sup></td></tr><tr><td><span></span></td></tr><tr><th>Pa\u0144stwo</th><td><p><span><span><span></span></span>&#160;</span>Polska</p></td></tr><tr><th>Miejscowo\u015b\u0107</th><td><p>Karpacz</p></td></tr><tr><th>Typ budynku</th><td><p>obserwatorium</p></td></tr><tr><th>Architekt</th><td><p>Waldemar Wawrzyniak,<br>Witold Lipi\u0144ski</p></td></tr><tr><th>Rozpocz\u0119cie budowy</th><td><p>1966</p></td></tr><tr><th>Uko\u0144czenie budowy</th><td><p>1974</p></td></tr><tr><th>Pierwszy w\u0142a\u015bciciel</th><td><p>IMGW</p></td></tr><tr><td><div><div>Po\u0142o\u017cenie na mapie Sudet\u00f3w</div><div><div><span><span></span></span><div><div><span></span></div><div><span>Wysokog\u00f3rskie Obserwatorium Meteorologiczne im. Tadeusza Ho\u0142dysa na \u015anie\u017cce</span></div></div></div></div></div></td></tr><tr><td><span><span></span><span><span><span>50\u00b044\u203211\u2033N</span>&#160;<span>15\u00b044\u203223\u2033E</span></span></span><span>/</span><span><span><span>50,736389</span>&#160;<span>15,739722</span></span></span></span></td></tr><tr><td><table><tbody><tr><td><span></span></td><td>Multimedia w Wikimedia Commons</td></tr></tbody></table></td></tr></table><p><b>Wysokog\u00f3rskie Obserwatorium Meteorologiczne im. Tadeusza Ho\u0142dysa na \u015anie\u017cce</b> \u2013 plac\u00f3wka Instytutu Meteorologii i Gospodarki Wodnej, zlokalizowana na szczycie \u015anie\u017cki, najwy\u017cszej g\u00f3ry Karkonoszy i Sudet\u00f3w. Od 1985 nosi imi\u0119 Tadeusza Ho\u0142dysa, wieloletniego kierownika obserwatorium.</p><p>Budynek, w kt\u00f3rym mie\u015bci si\u0119 obserwatorium, zosta\u0142 wzniesiony w latach 1966\u20131974. Ma form\u0119 trzech po\u0142\u0105czonych ze sob\u0105 bry\u0142 w kszta\u0142cie dysk\u00f3w (czasem okre\u015blanych jako talerze lub spodki). Jest to jeden z najbardziej charakterystycznych obiekt\u00f3w wsp\u00f3\u0142czesnej architektury polskiej, zaliczany do nurtu modernizmu. W 2020 zosta\u0142 wpisany do rejestru zabytk\u00f3w.</p><h2><span>Historia</span></h2><h3><span>Dawne obserwatoria</span></h3><p>Pierwsze obserwacje meteorologiczne na \u015anie\u017cce rozpocz\u0119to w 1824, ale mia\u0142y one charakter nieregularny. W 1880 powsta\u0142o pierwsze sta\u0142e obserwatorium, kt\u00f3re mie\u015bci\u0142o si\u0119 w kaplicy \u015bw. Wawrzy\u0144ca. W 1899 wzniesiono nowy, murowany budynek obserwatorium, kt\u00f3ry s\u0142u\u017cy\u0142 do 1976. Zosta\u0142 on rozebrany w 1989.</p><h3><span>Obecny budynek</span></h3><p>Decyzj\u0119 o budowie nowego obserwatorium podj\u0119to w latach 60. XX wieku. Konkurs na projekt architektoniczny wygrali Witold Lipi\u0144ski i Waldemar Wawrzyniak z Politechniki Wroc\u0142awskiej. Budowa trwa\u0142a od 1966 do 1974. Obiekt zosta\u0142 oficjalnie otwarty 13 listopada 1974.</p><p>W 2009 g\u00f3rny dysk budynku zosta\u0142 uszkodzony przez wichur\u0119. W 2015 przeprowadzono remont, kt\u00f3ry obejmowa\u0142 m.in. wzmocnienie konstrukcji i wymian\u0119 okien.</p><h2><span>Architektura</span></h2><p>Budynek sk\u0142ada si\u0119 z trzech dysk\u00f3w, kt\u00f3re s\u0105 ze sob\u0105 po\u0142\u0105czone. W najwy\u017cszym dysku znajduje si\u0119 taras widokowy, w \u015brodkowym \u2013 pomieszczenia techniczne i pokoje pracownik\u00f3w, a w najni\u017cszym \u2013 restauracja i toalety. Konstrukcja budynku jest wykonana z \u017celbetu, a elewacje pokryte s\u0105 blach\u0105 miedzian\u0105.</p><h2><span>Zobacz te\u017c</span></h2><ul><li> Obserwatorium astronomiczne na \u015anie\u017cce</li></ul><h2><span>Przypisy</span></h2><ol><li><span><span><a href=\"#cite_ref-1\">^</a></span> <span><cite><span>Rejestr zabytk\u00f3w nieruchomych woj. dolno\u015bl\u0105skiego</span><span>. Narodowy Instytut Dziedzictwa. s.&#160;69. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2020-08-23]</span></span></cite>.</span></li></ol><h2><span>Linki zewn\u0119trzne</span></h2><ul><li> <span>Oficjalna strona obserwatorium</span></li></ul></div>")'>&#x1F4D6;</a> <a href="geo:50.73636042941177,15.739708388235295">tower Wysokogórskie Obserwatorium Meteorologiczne na Śnieżce</a></td>
+                    <td>50.73636042941177</td>
+                    <td>15.739708388235295</td>
+                    <td id="importantPointDistFromCurrent_32"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7365827625,15.7397726125">cliff</a></td>
+                    <td>50.7365827625</td>
+                    <td>15.7397726125</td>
+                    <td id="importantPointDistFromCurrent_33"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7364344,15.740221">viewpoint</a></td>
+                    <td>50.7364344</td>
+                    <td>15.740221</td>
+                    <td id="importantPointDistFromCurrent_34"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7362066,15.7396227">bench</a></td>
+                    <td>50.7362066</td>
+                    <td>15.7396227</td>
+                    <td id="importantPointDistFromCurrent_35"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7364104,15.7402563">bench</a></td>
+                    <td>50.7364104</td>
+                    <td>15.7402563</td>
+                    <td id="importantPointDistFromCurrent_36"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7364145,15.7401898">picnic_site</a></td>
+                    <td>50.7364145</td>
+                    <td>15.7401898</td>
+                    <td id="importantPointDistFromCurrent_37"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1596</td>
+                    <td><a href="geo:50.7361947,15.7393941">board Śląską Drogą na Śnieżkę 7: Śnieżka</a></td>
+                    <td>50.7361947</td>
+                    <td>15.7393941</td>
+                    <td id="importantPointDistFromCurrent_38"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7358105,15.7398317">viewpoint</a></td>
+                    <td>50.7358105</td>
+                    <td>15.7398317</td>
+                    <td id="importantPointDistFromCurrent_39"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="#" onclick='window.showModal("<div><div><span></span><span>Ten artyku\u0142 dotyczy szczytu. Zobacz te\u017c: inne znaczenia tego s\u0142owa.</span></div><table><caption><style>.mw-parser-output .infobox>caption>.iboxt-flex{display:flex;justify-content:flex-start;align-items:center;gap:4px}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-ikona{flex-grow:0;flex-shrink:0;font-size:7px;max-width:40px;overflow:hidden}.mw-parser-output .infobox>caption>.iboxt-flex>.iboxt-tekst{flex-grow:1}.mw-parser-output .infobox>caption .iboxt-1{font-weight:bold}.mw-parser-output .infobox>caption .iboxt-2{font-style:italic}.mw-parser-output .infobox>caption .iboxt-3{font-style:italic;font-size:90%}</style><div>\u015anie\u017cka</div></caption><tbody><tr><td><span></span><br>Widok na \u015anie\u017ck\u0119 od strony zachodniej</td></tr><tr><th>Pa\u0144stwo</th><td><p><span><span><span></span></span>&#160;</span>Polska<br><span><span><span></span></span>&#160;</span>Czechy </p></td></tr><tr><th>Po\u0142o\u017cenie</th><td><p>Karpacz (DS)<br>Mal\u00e1 \u00dapa, Pec pod Sn\u011b\u017ekou (KR)</p></td></tr><tr><th>Pasmo</th><td><p>Karkonosze, Sudety</p></td></tr><tr><th>Wysoko\u015b\u0107</th><td><p>1603,3 m n.p.m.</p></td></tr><tr><th>Wybitno\u015b\u0107</th><td><p>1184 m</p></td></tr><tr><td><div><div>Po\u0142o\u017cenie na mapie Sudet\u00f3w</div><div><div><span><span></span></span><div><div><span></span></div><div><span>\u015anie\u017cka</span></div></div></div></div></div></td></tr><tr><td><span><span></span><span><span><span>50\u00b044\u203209,7\u2033N</span>&#160;<span>15\u00b044\u203222,6\u2033E</span></span></span><span>/</span><span><span><span>50,736028</span>&#160;<span>15,739611</span></span></span></span></td></tr><tr><td><table><tbody><tr><td><span></span></td><td>Multimedia w Wikimedia Commons</td></tr></tbody></table></td></tr><tr><td><table><tbody><tr><td><span></span></td><td>Informacje w Wikipodr\u00f3\u017cach</td></tr></tbody></table></td></tr></table><p><b>\u015anie\u017cka</b> (cz.&#160;<em>Sn\u011b\u017eka</em>, niem.&#160;<em>Schneekoppe</em>) \u2013 najwy\u017cszy szczyt Karkonoszy i Sudet\u00f3w, a zarazem Czech, wojew\u00f3dztwa dolno\u015bl\u0105skiego oraz ca\u0142ego \u015al\u0105ska. Jego wysoko\u015b\u0107 wynosi 1603,3 m n.p.m.<sup><span>&#91;</span>1<span>&#93;</span></sup></p><p>Po\u0142o\u017cona na granicy polsko-czeskiej, g\u00f3ruje nad Kotlin\u0105 Jeleniog\u00f3rsk\u0105 (r\u00f3\u017cnica wysoko\u015bci ok. 1200 m). Jest jednym z najwybitniejszych szczyt\u00f3w w Polsce (wybitno\u015b\u0107 1184 m)<sup><span>&#91;</span>2<span>&#93;</span></sup>.</p><p>Na szczycie znajduj\u0105 si\u0119: kaplica \u015bw. Wawrzy\u0144ca z 1681, Wysokog\u00f3rskie Obserwatorium Meteorologiczne im. Tadeusza Ho\u0142dysa (w charakterystycznym budynku w kszta\u0142cie dysk\u00f3w) oraz czeska poczta.</p><h2><span>Geologia i rze\u017aba terenu</span></h2><p>Masyw \u015anie\u017cki zbudowany jest z granitognejs\u00f3w, kt\u00f3re od strony wschodniej i zachodniej kontaktuj\u0105 z granitem karkonoskim. Szczyt pokryty jest go\u0142oborzami, kt\u00f3re powsta\u0142y w wyniku wietrzenia mrozowego.</p><p>Charakterystyczny kszta\u0142t sto\u017cka \u015anie\u017cka zawdzi\u0119cza swojej odporno\u015bci na erozj\u0119. W okresie zlodowace\u0144 by\u0142a nunatakiem, czyli szczytem wystaj\u0105cym ponad l\u0105dol\u00f3d.</p><h2><span>Klimat</span></h2><p>Na \u015anie\u017cce panuje klimat subpolarny, zbli\u017cony do tego na Alasce czy Spitsbergenie. \u015arednia roczna temperatura wynosi 0,4 \u00b0C. Zima trwa od pa\u017adziernika do maja. Wiatry na \u015anie\u017cce osi\u0105gaj\u0105 bardzo du\u017ce pr\u0119dko\u015bci, a najwy\u017csza zanotowana pr\u0119dko\u015b\u0107 wiatru wynios\u0142a 80 m/s (288 km/h)<sup><span>&#91;</span>3<span>&#93;</span></sup>.</p><h2><span>Turystyka</span></h2><p>\u015anie\u017cka jest jednym z najpopularniejszych cel\u00f3w turystycznych w Karkonoszach. Na szczyt prowadzi kilka szlak\u00f3w turystycznych z polskiej i czeskiej strony. Mo\u017cna te\u017c wjecha\u0107 kolej\u0105 gondolow\u0105 z Pecu pod Sn\u011b\u017ekou.</p><h2><span>Przypisy</span></h2><ol><li><span><span><a href=\"#cite_ref-1\">^</a></span> <span><cite>Geoportal</cite><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2017-04-28]</span></span>.</span></li><li><span><span><a href=\"#cite_ref-2\">^</a></span> <span><cite><span>Wybitne szczyty w Polsce</span><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2020-09-25]</span></span></cite>.</span></li><li><span><span><a href=\"#cite_ref-3\">^</a></span> <span><cite><span>Rekordowe wiatry na \u015anie\u017cce</span><span>. <span title=\"j\u0119zyk: pl\">[dost\u0119p 2020-09-25]</span></span></cite>.</span></li></ol></div>")'>&#x1F4D6;</a> <a href="geo:50.7360326,15.7396072">peak Śnieżka</a></td>
+                    <td>50.7360326</td>
+                    <td>15.7396072</td>
+                    <td id="importantPointDistFromCurrent_40"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7362501,15.7403198">stone</a></td>
+                    <td>50.7362501</td>
+                    <td>15.7403198</td>
+                    <td id="importantPointDistFromCurrent_41"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.735404,15.7403036">fast_food Bufet na lanovce</a></td>
+                    <td>50.735404</td>
+                    <td>15.7403036</td>
+                    <td id="importantPointDistFromCurrent_42"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7354316,15.7403686">toilets</a></td>
+                    <td>50.7354316</td>
+                    <td>15.7403686</td>
+                    <td id="importantPointDistFromCurrent_43"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7357876,15.7394649">map</a></td>
+                    <td>50.7357876</td>
+                    <td>15.7394649</td>
+                    <td id="importantPointDistFromCurrent_44"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7360761,15.7397348">bench</a></td>
+                    <td>50.7360761</td>
+                    <td>15.7397348</td>
+                    <td id="importantPointDistFromCurrent_45"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7361804,15.739724">bench</a></td>
+                    <td>50.7361804</td>
+                    <td>15.739724</td>
+                    <td id="importantPointDistFromCurrent_46"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7361898,15.7396715">bench</a></td>
+                    <td>50.7361898</td>
+                    <td>15.7396715</td>
+                    <td id="importantPointDistFromCurrent_47"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7361953,15.7398005">bench</a></td>
+                    <td>50.7361953</td>
+                    <td>15.7398005</td>
+                    <td id="importantPointDistFromCurrent_48"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7359287,15.7401543">viewpoint</a></td>
+                    <td>50.7359287</td>
+                    <td>15.7401543</td>
+                    <td id="importantPointDistFromCurrent_49"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.736117,15.7400715">guidepost Sněžka (lanovka)</a></td>
+                    <td>50.736117</td>
+                    <td>15.7400715</td>
+                    <td id="importantPointDistFromCurrent_50"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7359452,15.7394804">bench</a></td>
+                    <td>50.7359452</td>
+                    <td>15.7394804</td>
+                    <td id="importantPointDistFromCurrent_51"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7360849,15.7396878">memorial Dla Józefa Odrowąża-Pieniążka</a></td>
+                    <td>50.7360849</td>
+                    <td>15.7396878</td>
+                    <td id="importantPointDistFromCurrent_52"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7359431,15.739783">stone</a></td>
+                    <td>50.7359431</td>
+                    <td>15.739783</td>
+                    <td id="importantPointDistFromCurrent_53"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7357748,15.7396819">memorial Adolf Klepš</a></td>
+                    <td>50.7357748</td>
+                    <td>15.7396819</td>
+                    <td id="importantPointDistFromCurrent_54"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7360411,15.7390409">bench</a></td>
+                    <td>50.7360411</td>
+                    <td>15.7390409</td>
+                    <td id="importantPointDistFromCurrent_55"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7359948,15.7392804">bench</a></td>
+                    <td>50.7359948</td>
+                    <td>15.7392804</td>
+                    <td id="importantPointDistFromCurrent_56"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7359551,15.7400574">guidepost Sněžka</a></td>
+                    <td>50.7359551</td>
+                    <td>15.7400574</td>
+                    <td id="importantPointDistFromCurrent_57"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7361442,15.7401269">access_point</a></td>
+                    <td>50.7361442</td>
+                    <td>15.7401269</td>
+                    <td id="importantPointDistFromCurrent_58"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7353856,15.7403369">defibrillator</a></td>
+                    <td>50.7353856</td>
+                    <td>15.7403369</td>
+                    <td id="importantPointDistFromCurrent_59"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7360319,15.7394166">stone</a></td>
+                    <td>50.7360319</td>
+                    <td>15.7394166</td>
+                    <td id="importantPointDistFromCurrent_60"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7360467,15.7399653">stone</a></td>
+                    <td>50.7360467</td>
+                    <td>15.7399653</td>
+                    <td id="importantPointDistFromCurrent_61"></td>
+                </tr>
+                <tr>
+                    <td>0.8</td>
+                    <td>1597</td>
+                    <td><a href="geo:50.7361445,15.7401374">stone</a></td>
+                    <td>50.7361445</td>
+                    <td>15.7401374</td>
+                    <td id="importantPointDistFromCurrent_62"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>1408</td>
+                    <td><a href="geo:50.738043,15.73139">Entry: czarny-szlak-turystyczny-karpacz-bialy-jar-sniezka</a></td>
+                    <td>50.738043</td>
+                    <td>15.73139</td>
+                    <td id="importantPointDistFromCurrent_63"></td>
+                </tr>
+                <tr>
+                    <td>0.0</td>
+                    <td>1408</td>
+                    <td><a href="geo:50.738043,15.73139">Entry: droga-przyjazni-polsko-czeskiej</a></td>
+                    <td>50.738043</td>
+                    <td>15.73139</td>
+                    <td id="importantPointDistFromCurrent_64"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
+
