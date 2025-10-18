@@ -1,0 +1,705 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>franowo.gpx</title>
+    <style>
+        body { font-family: sans-serif; }
+        canvas { }
+        #itineraryTable th {
+            position: sticky;
+            top: 0;
+            background-color: #f2f2f2; /* Add a background to prevent content from showing through */
+            z-index: 1; /* Ensure it stays on top of scrolling content */
+        }
+        .current-position-row {
+            font-weight: bold;
+            color: red;
+        }
+        #itineraryTable th:nth-child(4),
+        #itineraryTable td:nth-child(4),
+        #itineraryTable th:nth-child(5),
+        #itineraryTable td:nth-child(5) {
+            display: none;
+        }
+        #itineraryTable {
+        }
+        #itineraryTable th {
+            font-size: 2em;
+        }
+        #itineraryTable td {
+            font-size: 3em;
+        }
+        .switch {
+          position: relative;
+          display: inline-block;
+          width: 120px;
+          height: 68px;
+        }
+
+        .switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+
+        .slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: #ccc;
+          -webkit-transition: .4s;
+          transition: .4s;
+        }
+
+        .slider:before {
+          position: absolute;
+          content: "";
+          height: 52px;
+          width: 52px;
+          left: 8px;
+          bottom: 8px;
+          background-color: white;
+          -webkit-transition: .4s;
+          transition: .4s;
+        }
+
+        input:checked + .slider {
+          background-color: #2196F3;
+        }
+
+        input:focus + .slider {
+          box-shadow: 0 0 1px #2196F3;
+        }
+
+        input:checked + .slider:before {
+          -webkit-transform: translateX(52px);
+          -ms-transform: translateX(52px);
+          transform: translateX(52px);
+        }
+
+        /* Rounded sliders */
+        .slider.round {
+          border-radius: 68px;
+        }
+
+        .slider.round:before {
+          border-radius: 50%;
+        }
+        /* Modal styles */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgb(0,0,0); 
+            background-color: rgba(0,0,0,0.4); 
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; 
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; 
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="myModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+    <div style="position: absolute; top: 10px; left: 10px; z-index: 10; font-size: 2em; display: flex; align-items: center; background-color: white; padding: 10px; border-radius: 5px; opacity: 0.6;">
+        <label class="switch">
+          <input type="checkbox" id="autoScrollToggle" checked>
+          <span class="slider round"></span>
+        </label>
+    </div>
+    <div id="gpsStatus" style="position: absolute; top: 10px; right: 10px; z-index: 10; font-size: 2em; opacity: 0.8;"></div>
+    <canvas id="profileCanvas" style="width: 100%; height: 33vh;"></canvas>
+    <script>
+        window.addEventListener('load', function() {
+            const canvas = document.getElementById('profileCanvas');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            const elevations = [89.0, 89.0, 89.0, 86.0, 86.0, 86.0, 86.0, 85.0, 85.0, 85.0, 86.0, 88.0, 88.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 85.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0, 89.0];
+            const distances = [0, 0.0013328112931353688, 0.01746654630125047, 0.025292779780052198, 0.03999875698301815, 0.045279087844883915, 0.05271511009815176, 0.061528052393284294, 0.0769115390881027, 0.08433513000244662, 0.10145673525005142, 0.13999109153883024, 0.15356471906692976, 0.16175012607531775, 0.1690942619854883, 0.1827344154364393, 0.18827243873847815, 0.19422787521844725, 0.20570722398123553, 0.20748460880364045, 0.21965263992350947, 0.23615614186209488, 0.2527031990016475, 0.2661621955786227, 0.26913050936783384, 0.2778615789097026, 0.28341081362999276, 0.2860435865832006, 0.28950110996988776, 0.30089035310551704, 0.30089035310551704, 0.30257183510586205, 0.31396106621075565, 0.3253176235211842, 0.336331225111386, 0.33853446180709423, 0.35281842152495446, 0.3692632901056144, 0.38616687554590445, 0.39821023005695577, 0.40281589821775554, 0.4063332397414286, 0.4198630882286244, 0.4328536808758643, 0.43668366284307186, 0.4435340638783749, 0.46948607246301777, 0.48638896907507057, 0.5025225687142073, 0.5159813166766763, 0.5199390214694665, 0.5287185097351697, 0.5364585818605403, 0.5530166832373777, 0.5625108583632267, 0.5625108583632267, 0.569566259829642, 0.6877033816985307, 0.7041270543099211, 0.7206035289305522, 0.7371718405964744, 0.7536483561587222, 0.7701512849480189, 0.7866278412252787, 0.8266434856208064, 0.8643332952521912, 0.8808626385666292, 0.8969959720872069, 0.9138985927334655, 0.9303751069383516, 0.9464545958586484, 0.9634110179796819, 0.9798348122850513, 0.9959682723965018, 1.0129247606134149, 1.0159605406832752, 1.0216824339537172, 1.0311874358700963];
+            const lats = [52.38312, 52.383114, 52.383026, 52.382982, 52.3829, 52.382873, 52.382834, 52.38279, 52.382675, 52.38262, 52.382494, 52.382209, 52.38211, 52.382061, 52.382033, 52.382012, 52.382006, 52.382028, 52.382072, 52.382083, 52.382149, 52.382236, 52.38233, 52.382407, 52.382428, 52.382489, 52.382527, 52.382544, 52.382566, 52.382626, 52.382626, 52.382637, 52.382697, 52.382741, 52.382774, 52.382785, 52.382867, 52.382966, 52.383065, 52.383136, 52.383174, 52.383201, 52.383279, 52.38335, 52.38336, 52.383372, 52.383519, 52.383612, 52.3837, 52.383777, 52.383805, 52.383871, 52.38392, 52.384007, 52.384062, 52.384062, 52.384101, 52.384939, 52.384846, 52.384753, 52.384665, 52.384572, 52.384485, 52.384392, 52.384677, 52.384945, 52.384852, 52.384764, 52.384671, 52.384578, 52.38449, 52.384397, 52.384304, 52.384216, 52.384123, 52.384106, 52.384145, 52.384211];
+            const lons = [16.991067, 16.99105, 16.990861, 16.990771, 16.990601, 16.990537, 16.990448, 16.99034, 16.990466, 16.990528, 16.990673, 16.990996, 16.991113, 16.991203, 16.991301, 16.991499, 16.99158, 16.99166, 16.991813, 16.991832, 16.991975, 16.992172, 16.992361, 16.992514, 16.992541, 16.992622, 16.992675, 16.992702, 16.992738, 16.992874, 16.992874, 16.992891, 16.993027, 16.993178, 16.993331, 16.993358, 16.99352, 16.9937, 16.993889, 16.994023, 16.99405, 16.994077, 16.99423, 16.994382, 16.994436, 16.994535, 16.994832, 16.995029, 16.995218, 16.995371, 16.995407, 16.995478, 16.995559, 16.995757, 16.995864, 16.995864, 16.995946, 16.994876, 16.994688, 16.994499, 16.994302, 16.994113, 16.993916, 16.993727, 16.993367, 16.993027, 16.992837, 16.992648, 16.992451, 16.992262, 16.992074, 16.991876, 16.991688, 16.991499, 16.991301, 16.991266, 16.991211, 16.991122];
+            const importantPointsData = [{"name": "fast_food Max", "lat": 52.382834369230764, "lon": 16.9912642, "trail_distance": 0.0013328112931353688, "trail_elevation": 89.0}, {"name": "toilets", "lat": 52.3802272, "lon": 16.9842102, "trail_distance": 0.061528052393284294, "trail_elevation": 85.0}, {"name": "toilets", "lat": 52.3828909, "lon": 16.9877126, "trail_distance": 0.061528052393284294, "trail_elevation": 85.0}, {"name": "toilets", "lat": 52.3816744, "lon": 16.985138, "trail_distance": 0.061528052393284294, "trail_elevation": 85.0}, {"name": "defibrillator", "lat": 52.3817873, "lon": 16.9850918, "trail_distance": 0.061528052393284294, "trail_elevation": 85.0}, {"name": "waste_basket", "lat": 52.3830012, "lon": 16.9892213, "trail_distance": 0.061528052393284294, "trail_elevation": 85.0}, {"name": "toilets", "lat": 52.3827991, "lon": 16.9873622, "trail_distance": 0.061528052393284294, "trail_elevation": 85.0}, {"name": "vending_machine", "lat": 52.3822649, "lon": 16.9908289, "trail_distance": 0.13999109153883024, "trail_elevation": 88.0}, {"name": "shelter", "lat": 52.38217568, "lon": 16.99092546, "trail_distance": 0.13999109153883024, "trail_elevation": 88.0}, {"name": "shelter", "lat": 52.38211398, "lon": 16.99074752, "trail_distance": 0.13999109153883024, "trail_elevation": 88.0}, {"name": "toilets", "lat": 52.38032, "lon": 16.988311, "trail_distance": 0.15356471906692976, "trail_elevation": 88.0}, {"name": "defibrillator", "lat": 52.3801747, "lon": 16.9879888, "trail_distance": 0.15356471906692976, "trail_elevation": 88.0}, {"name": "playground", "lat": 52.38142411818182, "lon": 16.990449027272728, "trail_distance": 0.16175012607531775, "trail_elevation": 89.0}];
+            const minLat = 52.382006;
+            const maxLat = 52.384945;
+            const minLon = 16.99034;
+            const maxLon = 16.995946;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const paddingTop = 100;
+            const paddingRight = 0;
+            const paddingBottom = 40;
+            const paddingLeft = 20;
+
+            const maxEle = Math.max(...elevations);
+            const minEle = Math.min(...elevations);
+            const eleRange = maxEle - minEle;
+            const maxDist = distances[distances.length - 1];
+
+            let lastRefreshTime;
+            let gpsStatusMessage = '';
+            let isAutoScrollOn = true;
+
+            const modal = document.getElementById("myModal");
+            const modalBody = document.getElementById("modal-body");
+            const span = document.getElementsByClassName("close")[0];
+
+            window.showModal = function(content) {
+                modalBody.innerHTML = content;
+                modal.style.display = "block";
+            }
+
+            span.onclick = function() {
+                modal.style.display = "none";
+            }
+
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            }
+
+            function getX(distance) {
+                return paddingLeft + (distance / maxDist) * (width - paddingLeft - paddingRight);
+            }
+
+            function getY(elevation) {
+                return height - paddingBottom - ((elevation - minEle) / eleRange) * (height - paddingTop - paddingBottom);
+            }
+
+            function drawProfile() {
+                ctx.clearRect(0, 0, width, height);
+                ctx.strokeStyle = 'black';
+                ctx.fillStyle = 'black';
+                // Draw profile
+                ctx.beginPath();
+                ctx.moveTo(getX(distances[0]), getY(elevations[0]));
+                for (let i = 1; i < elevations.length; i++) {
+                    ctx.lineTo(getX(distances[i]), getY(elevations[i]));
+                }
+                ctx.stroke();
+
+                // Draw axes
+                ctx.beginPath();
+                ctx.moveTo(paddingLeft, paddingTop);
+                ctx.lineTo(paddingLeft, height - paddingBottom);
+                ctx.lineTo(width - paddingRight, height - paddingBottom);
+                ctx.stroke();
+            }
+
+            drawProfile();
+
+            function haversine(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Radius of Earth in kilometers
+                const dLat = (lat2 - lat1) * Math.PI / 180;  // deg2rad below
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = 
+                    0.5 - Math.cos(dLat)/2 + 
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    (1 - Math.cos(dLon))/2;
+
+                return R * 2 * Math.asin(Math.sqrt(a));
+            }
+
+            function calculateBearing(startLat, startLng, destLat, destLng) {
+              // Convert degrees to radians
+              const toRadians = (degrees) => degrees * Math.PI / 180;
+              const toDegrees = (radians) => radians * 180 / Math.PI;
+
+              const startLatRad = toRadians(startLat);
+              const startLngRad = toRadians(startLng);
+              const destLatRad = toRadians(destLat);
+              const destLngRad = toRadians(destLng);
+
+              // Calculate the difference in longitude
+              const deltaLng = destLngRad - startLngRad;
+
+              // Calculate the bearing
+              const y = Math.sin(deltaLng) * Math.cos(destLatRad);
+              const x = Math.cos(startLatRad) * Math.sin(destLatRad) -
+                        Math.sin(startLatRad) * Math.cos(destLatRad) * Math.cos(deltaLng);
+              let bearing = Math.atan2(y, x);
+
+              // Convert the bearing from radians to degrees
+              bearing = toDegrees(bearing);
+
+              // Ensure the bearing is a positive number between 0 and 360
+              return (bearing + 360) % 360;
+            }
+
+            function getBearingArrow(bearing) {
+                if (bearing >= 337.5 || bearing < 22.5) {
+                    return '↑'; // North
+                } else if (bearing >= 22.5 && bearing < 67.5) {
+                    return '↗'; // North-East
+                } else if (bearing >= 67.5 && bearing < 112.5) {
+                    return '→'; // East
+                } else if (bearing >= 112.5 && bearing < 157.5) {
+                    return '↘'; // South-East
+                } else if (bearing >= 157.5 && bearing < 202.5) {
+                    return '↓'; // South
+                } else if (bearing >= 202.5 && bearing < 247.5) {
+                    return '↙'; // South-West
+                } else if (bearing >= 247.5 && bearing < 292.5) {
+                    return '←'; // West
+                } else if (bearing >= 292.5 && bearing < 337.5) {
+                    return '↖'; // North-West
+                }
+                return ''; // Should not happen
+            }
+
+            function aggregateTableRows() {
+                const tableBody = document.querySelector('#itineraryTable tbody');
+                if (!tableBody) return;
+
+                // First, reset any previous aggregation by making all rows visible and removing old counts
+                const rows = Array.from(tableBody.querySelectorAll('tr'));
+                rows.forEach(row => {
+                    row.style.display = '';
+                    if (row.cells.length > 2) {
+                        const pointCell = row.cells[2];
+                        // Use a regex to remove ' xN' from the end of the innerHTML
+                        pointCell.innerHTML = pointCell.innerHTML.replace(/ x[0-9]+$/, '');
+                    }
+                });
+
+                let lastVisibleRow = null;
+                let consecutiveCount = 1;
+
+                for (let i = 0; i < rows.length; i++) {
+                    const currentRow = rows[i];
+                    if (currentRow.cells.length <= 2) {
+                        continue;
+                    }
+                    // Skip rows that are already hidden (shouldn't happen with reset, but good practice)
+                    if (currentRow.style.display === 'none') {
+                        continue;
+                    }
+
+                    if (lastVisibleRow && lastVisibleRow.cells.length > 2 && lastVisibleRow.cells[2].innerText.trim() === currentRow.cells[2].innerText.trim()) {
+                        consecutiveCount++;
+                        currentRow.style.display = 'none'; // Hide consecutive same row
+                    } else {
+                        // If we just finished a sequence of consecutive rows, update the count on the last visible one.
+                        if (consecutiveCount > 1 && lastVisibleRow && lastVisibleRow.cells.length > 2) {
+                            lastVisibleRow.cells[2].innerHTML += ` x${consecutiveCount}`;
+                        }
+                        // Start a new sequence.
+                        lastVisibleRow = currentRow;
+                        consecutiveCount = 1;
+                    }
+                }
+
+                // After the loop, check if the very last rows were a consecutive sequence.
+                if (consecutiveCount > 1 && lastVisibleRow && lastVisibleRow.cells.length > 2) {
+                    lastVisibleRow.cells[2].innerHTML += ` x${consecutiveCount}`;
+                }
+            }
+
+            function sortTable() {
+                const tableBody = document.querySelector('#itineraryTable tbody');
+                const rows = Array.from(tableBody.children);
+
+                rows.sort((a, b) => {
+                    const distanceA = parseFloat(a.cells[0].textContent.trim());
+                    const distanceB = parseFloat(b.cells[0].textContent.trim());
+
+                    if (isNaN(distanceA) && isNaN(distanceB)) return 0; // Both NaN, keep original order
+                    if (isNaN(distanceA)) return 1; // A is NaN, B is a number, put A at the end
+                    if (isNaN(distanceB)) return -1; // B is NaN, A is a number, put B at the end
+
+                    return distanceA - distanceB;
+                });
+
+                while (tableBody.firstChild) {
+                    tableBody.removeChild(tableBody.firstChild);
+                }
+                rows.forEach(row => tableBody.appendChild(row));
+            }
+
+            function updateStaticTable() {
+                const maxEleIndex = elevations.indexOf(maxEle);
+                const maxEleDistance = distances[maxEleIndex];
+
+                document.getElementById('startDistance').innerText = distances[0].toFixed(1);
+                document.getElementById('startHeight').innerText = elevations[0].toFixed(0);
+
+                document.getElementById('highestPointDistance').innerText = maxEleDistance.toFixed(1);
+                document.getElementById('highestPointHeight').innerText = maxEle.toFixed(0);
+
+                document.getElementById('finishDistance').innerText = maxDist.toFixed(1);
+                document.getElementById('finishHeight').innerText = elevations[elevations.length - 1].toFixed(0);
+
+                document.getElementById('startLat').innerText = lats[0].toFixed(5);
+                document.getElementById('startLon').innerText = lons[0].toFixed(5);
+                document.getElementById('startLink').href = `geo:${lats[0]},${lons[0]}`;
+
+                document.getElementById('highestPointLat').innerText = lats[maxEleIndex].toFixed(5);
+                document.getElementById('highestPointLon').innerText = lons[maxEleIndex].toFixed(5);
+                document.getElementById('highestPointLink').href = `geo:${lats[maxEleIndex]},${lons[maxEleIndex]}`;
+
+                document.getElementById('finishLat').innerText = lats[lats.length - 1].toFixed(5);
+                document.getElementById('finishLon').innerText = lons[lons.length - 1].toFixed(5);
+                document.getElementById('finishLink').href = `geo:${lats[lats.length - 1]},${lons[lons.length - 1]}`;
+                sortTable();
+                aggregateTableRows();
+            }
+
+            function formatTimeAgo(date) {
+                const seconds = Math.floor((new Date() - date) / 1000);
+                let interval = seconds / 31536000;
+                if (interval > 1) {
+                    return Math.floor(interval) + " years ago";
+                }
+                interval = seconds / 2592000;
+                if (interval > 1) {
+                    return Math.floor(interval) + " months ago";
+                }
+                interval = seconds / 86400;
+                if (interval > 1) {
+                    return Math.floor(interval) + " days ago";
+                }
+                interval = seconds / 3600;
+                if (interval > 1) {
+                    return Math.floor(interval) + " hours ago";
+                }
+                interval = seconds / 60;
+                if (interval > 1) {
+                    return Math.floor(interval) + " minutes ago";
+                }
+                return Math.floor(seconds) + " seconds ago";
+            }
+
+            function refreshLocation() {
+                let dots = 0;
+                const interval = setInterval(() => {
+                    dots = (dots + 1) % 4;
+                    gpsStatusMessage = ".".repeat(dots);
+                }, 500);
+
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(position => {
+                        clearInterval(interval);
+                        lastRefreshTime = new Date();
+                        const userLat = position.coords.latitude;
+                        const userLon = position.coords.longitude;
+                        gpsStatusMessage = `Lat: ${userLat.toFixed(5)}, Lon: ${userLon.toFixed(5)}`;
+        
+                        console.log('User Location:', userLat, userLon);
+        
+                        let nearestIndex = 0;
+                        let minDistance = Infinity;
+                        for (let i = 0; i < lats.length; i++) {
+                            const dist = haversine(userLat, userLon, lats[i], lons[i]);
+                            if (dist < minDistance) {
+                                minDistance = dist;
+                                nearestIndex = i;
+                            }
+                        }
+                        console.log('Nearest Index:', nearestIndex, 'Min Distance:', minDistance);
+                        updateMapAndTable(nearestIndex, userLat, userLon);
+                    }, error => {
+                        clearInterval(interval);
+                        gpsStatusMessage = 'NOPE';
+                        console.error('Error getting user location:', error);
+                    });
+                } else {
+                    clearInterval(interval);
+                    gpsStatusMessage = 'NOPE';
+                    console.error('Geolocation is not supported by this browser.');
+                }
+            }
+
+            updateStaticTable();
+            refreshLocation();
+            setInterval(refreshLocation, 20000);
+
+            document.getElementById('autoScrollToggle').addEventListener('change', function() {
+                isAutoScrollOn = this.checked;
+            });
+
+            setInterval(() => {
+                if (lastRefreshTime) {
+                    document.getElementById('gpsStatus').innerText = `${gpsStatusMessage} (${formatTimeAgo(lastRefreshTime)})`
+                } else {
+                    document.getElementById('gpsStatus').innerText = gpsStatusMessage;
+                }
+            }, 1000);
+
+            function updateMapAndTable(nearestIndex, actualLat, actualLon) {
+                drawProfile();
+                document.getElementById('currentPositionRow').style.display = '';
+                console.log('Nearest Index:', nearestIndex);
+
+                // Draw current position line
+                const currentX = getX(distances[nearestIndex]);
+                ctx.beginPath();
+                ctx.strokeStyle = 'red';
+                ctx.moveTo(currentX, paddingTop);
+                ctx.lineTo(currentX, height - paddingBottom);
+                ctx.stroke();
+
+                // Draw info on top of the line
+                const currentDist = distances[nearestIndex];
+                const percentage = (currentDist / maxDist) * 100;
+                const ele = elevations[nearestIndex];
+                ctx.fillStyle = 'red';
+                ctx.font = '70px Arial'; // Set a much bigger font for current position info
+
+                let textX = currentX;
+                if (currentX < paddingLeft + 50) {
+                    ctx.textAlign = 'left';
+                    textX = paddingLeft;
+                } else if (currentX > width - paddingRight - 50) {
+                    ctx.textAlign = 'right';
+                    textX = width - paddingRight;
+                } else {
+                    ctx.textAlign = 'center';
+                }
+
+                
+                ctx.fillText(percentage.toFixed(0) + '%', textX, paddingTop - 5);
+
+                ctx.strokeStyle = 'black';
+                ctx.fillStyle = 'black';
+
+                const tableBody = document.querySelector('#itineraryTable tbody');
+
+                document.getElementById('currentDistance').innerText = currentDist.toFixed(1);
+                document.getElementById('currentHeight').innerText = ele.toFixed(0);
+                document.getElementById('currentLat').innerText = lats[nearestIndex].toFixed(5);
+                document.getElementById('currentLon').innerText = lons[nearestIndex].toFixed(5);
+                document.getElementById('currentLink').href = `geo:${actualLat},${actualLon}`;
+
+                const maxEleIndex = elevations.indexOf(maxEle);
+
+                const currentLat = actualLat;
+                const currentLon = actualLon;
+
+                const startBearing = calculateBearing(currentLat, currentLon, lats[0], lons[0]);
+                const highestPointBearing = calculateBearing(currentLat, currentLon, lats[maxEleIndex], lons[maxEleIndex]);
+                const finishBearing = calculateBearing(currentLat, currentLon, lats[lats.length - 1], lons[lats.length - 1]);
+
+                document.getElementById('startDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[0], lons[0]).toFixed(2) + ' km ' + getBearingArrow(startBearing);
+                document.getElementById('currentDistFromCurrent').innerText = '';
+                document.getElementById('highestPointDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[maxEleIndex], lons[maxEleIndex]).toFixed(2) + ' km ' + getBearingArrow(highestPointBearing);
+                document.getElementById('finishDistFromCurrent').innerText = haversine(currentLat, currentLon, lats[lats.length - 1], lons[lats.length - 1]).toFixed(2) + ' km ' + getBearingArrow(finishBearing);
+
+                importantPointsData.forEach((point, index) => {
+                    const dist = haversine(currentLat, currentLon, point.lat, point.lon);
+                    const bearing = calculateBearing(currentLat, currentLon, point.lat, point.lon);
+                    document.getElementById(`importantPointDistFromCurrent_${index}`).innerText = dist.toFixed(2) + ' km ' + getBearingArrow(bearing);
+                });
+
+                sortTable();
+                aggregateTableRows();
+
+                // Scroll to current position
+                const tableContainer = document.getElementById('tableContainer');
+                const currentPositionRow = document.getElementById('currentDistance').closest('tr'); // Find the parent <tr>
+
+                if (tableContainer && currentPositionRow) {
+                    if (isAutoScrollOn) {
+                        currentPositionRow.scrollIntoView({ block: "center" });
+                    }
+                    currentPositionRow.classList.add('current-position-row');
+                }
+            }
+            // Calculate remaining height for tableContainer
+            const canvasHeight = document.getElementById('profileCanvas').offsetHeight;
+
+            const totalOccupiedHeight = canvasHeight;
+            const windowHeight = window.innerHeight;
+            const remainingHeight = windowHeight - totalOccupiedHeight - 25;
+
+            if (tableContainer) {
+                tableContainer.style.height = `${remainingHeight}px`;
+            }
+    });
+    </script>
+    <div id="tableContainer" style="height: 200px; overflow-y: scroll;">
+        <table border="1" width="100%" id="itineraryTable">
+            <thead>
+                <tr>
+                    <th>Distance (km)</th>
+                    <th>Height (m)</th>
+                    <th>Point</th>
+                    <th>Lat</th>
+                    <th>Lon</th>
+                    <th>From Current (km)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td id="startDistance"></td>
+                    <td id="startHeight"></td>
+                    <td><a id="startLink" href="">START</a></td>
+                    <td id="startLat"></td>
+                    <td id="startLon"></td>
+                    <td id="startDistFromCurrent"></td>
+                </tr>
+                <tr id="currentPositionRow" style="display: none;">
+                    <td id="currentDistance"></td>
+                    <td id="currentHeight"></td>
+                    <td><a id="currentLink" href="">Current Position</a></td>
+                    <td id="currentLat"></td>
+                    <td id="currentLon"></td>
+                    <td id="currentDistFromCurrent"></td>
+                </tr>
+                <tr>
+                    <td id="highestPointDistance"></td>
+                    <td id="highestPointHeight"></td>
+                    <td><a id="highestPointLink" href="">Highest Point</a></td>
+                    <td id="highestPointLat"></td>
+                    <td id="highestPointLon"></td>
+                    <td id="highestPointDistFromCurrent"></td>
+                </tr>
+                <tr>
+                    <td id="finishDistance"></td>
+                    <td id="finishHeight"></td>
+                    <td><a id="finishLink" href="">FINISH</a></td>
+                    <td id="finishLat"></td>
+                    <td id="finishLon"></td>
+                    <td id="finishDistFromCurrent"></td>
+                </tr>
+                
+                <tr>
+                    <td>0.0</td>
+                    <td>89</td>
+                    <td><a href="geo:52.382834369230764,16.9912642">fast_food Max</a></td>
+                    <td>52.382834369230764</td>
+                    <td>16.9912642</td>
+                    <td id="importantPointDistFromCurrent_0"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>85</td>
+                    <td><a href="geo:52.3802272,16.9842102">toilets</a></td>
+                    <td>52.3802272</td>
+                    <td>16.9842102</td>
+                    <td id="importantPointDistFromCurrent_1"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>85</td>
+                    <td><a href="geo:52.3828909,16.9877126">toilets</a></td>
+                    <td>52.3828909</td>
+                    <td>16.9877126</td>
+                    <td id="importantPointDistFromCurrent_2"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>85</td>
+                    <td><a href="geo:52.3816744,16.985138">toilets</a></td>
+                    <td>52.3816744</td>
+                    <td>16.985138</td>
+                    <td id="importantPointDistFromCurrent_3"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>85</td>
+                    <td><a href="geo:52.3817873,16.9850918">defibrillator</a></td>
+                    <td>52.3817873</td>
+                    <td>16.9850918</td>
+                    <td id="importantPointDistFromCurrent_4"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>85</td>
+                    <td><a href="geo:52.3830012,16.9892213">waste_basket</a></td>
+                    <td>52.3830012</td>
+                    <td>16.9892213</td>
+                    <td id="importantPointDistFromCurrent_5"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>85</td>
+                    <td><a href="geo:52.3827991,16.9873622">toilets</a></td>
+                    <td>52.3827991</td>
+                    <td>16.9873622</td>
+                    <td id="importantPointDistFromCurrent_6"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>88</td>
+                    <td><a href="geo:52.3822649,16.9908289">vending_machine</a></td>
+                    <td>52.3822649</td>
+                    <td>16.9908289</td>
+                    <td id="importantPointDistFromCurrent_7"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>88</td>
+                    <td><a href="geo:52.38217568,16.99092546">shelter</a></td>
+                    <td>52.38217568</td>
+                    <td>16.99092546</td>
+                    <td id="importantPointDistFromCurrent_8"></td>
+                </tr>
+                <tr>
+                    <td>0.1</td>
+                    <td>88</td>
+                    <td><a href="geo:52.38211398,16.99074752">shelter</a></td>
+                    <td>52.38211398</td>
+                    <td>16.99074752</td>
+                    <td id="importantPointDistFromCurrent_9"></td>
+                </tr>
+                <tr>
+                    <td>0.2</td>
+                    <td>88</td>
+                    <td><a href="geo:52.38032,16.988311">toilets</a></td>
+                    <td>52.38032</td>
+                    <td>16.988311</td>
+                    <td id="importantPointDistFromCurrent_10"></td>
+                </tr>
+                <tr>
+                    <td>0.2</td>
+                    <td>88</td>
+                    <td><a href="geo:52.3801747,16.9879888">defibrillator</a></td>
+                    <td>52.3801747</td>
+                    <td>16.9879888</td>
+                    <td id="importantPointDistFromCurrent_11"></td>
+                </tr>
+                <tr>
+                    <td>0.2</td>
+                    <td>89</td>
+                    <td><a href="geo:52.38142411818182,16.990449027272728">playground</a></td>
+                    <td>52.38142411818182</td>
+                    <td>16.990449027272728</td>
+                    <td id="importantPointDistFromCurrent_12"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
+
